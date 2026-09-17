@@ -1,5 +1,8 @@
 "use client";
 
+import { useState, type ReactNode } from "react";
+import { CheckCircle2, ClipboardCheck, FileSearch, type LucideIcon, ShieldCheck, Stethoscope } from "lucide-react";
+import { cn } from "cn";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -11,115 +14,137 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { IconChip, type IconChipColor } from "@/components/icon-chip";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { StatusBadge } from "@/components/status-badge";
 import type { IntakeRunResult } from "@/app/actions";
-import type { CriterionResult, FollowUpAnswers } from "@/lib/policy/types";
+import type {
+  CriterionOption,
+  CriterionResult,
+  FollowUpAnswers,
+  PolicyMatchMethod,
+} from "@/lib/policy/types";
 
-const selectClassName =
-  "border-input flex h-9 w-full max-w-sm rounded-md border bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
-
-function ThyroidStatusInput({
-  value,
-  onChange,
-}: {
-  value: FollowUpAnswers["thyroidStatus"];
-  onChange: (value: FollowUpAnswers["thyroidStatus"]) => void;
-}) {
+function MatchMethodBadge({ method, confidence }: { method: PolicyMatchMethod; confidence?: number }) {
+  if (method === "none") return null;
+  const label =
+    method === "exact"
+      ? "Exact match"
+      : method === "partial"
+        ? "Partial match (different line of business)"
+        : method === "keyword"
+          ? "Keyword match"
+          : `AI match · ${Math.round((confidence ?? 0) * 100)}% similar`;
   return (
-    <select
-      className={selectClassName}
-      value={value ?? ""}
-      onChange={(e) => onChange((e.target.value || undefined) as typeof value)}
+    <Badge
+      variant="outline"
+      className={cn(
+        "border-transparent text-[10px]",
+        method === "exact" ? "bg-accent-green/15 text-accent-green" : "bg-accent-orange/15 text-accent-orange"
+      )}
     >
-      <option value="" disabled>
-        Select thyroid status&hellip;
-      </option>
-      <option value="euthyroid">Euthyroid</option>
-      <option value="being-treated">Currently receiving treatment to correct levels</option>
-      <option value="not-controlled">Neither confirmed</option>
-    </select>
+      {label}
+    </Badge>
   );
 }
 
-function PriorTherapyInput({
-  value,
-  onChange,
+function CardIconTitle({
+  icon,
+  color,
+  children,
 }: {
-  value: FollowUpAnswers["priorTherapyAttested"];
-  onChange: (value: FollowUpAnswers["priorTherapyAttested"]) => void;
+  icon: LucideIcon;
+  color: IconChipColor;
+  children: ReactNode;
 }) {
   return (
-    <select
-      className={selectClassName}
-      value={value ?? ""}
-      onChange={(e) => onChange((e.target.value || undefined) as typeof value)}
-    >
-      <option value="" disabled>
-        Select prescriber attestation&hellip;
-      </option>
-      <option value="attested-no-prior">
-        Prescriber attests: no prior course of therapy
-      </option>
-      <option value="has-prior-therapy">Cannot attest / member has had prior therapy</option>
-    </select>
+    <CardTitle className="flex items-center gap-2.5">
+      <IconChip icon={icon} color={color} />
+      {children}
+    </CardTitle>
   );
 }
 
-function SeverityFindingsInput({
-  subFindings,
+function AttestationSingleInput({
+  options,
   value,
   onChange,
 }: {
-  subFindings: { id: string; label: string }[];
-  value: string[] | undefined;
+  options: CriterionOption[];
+  value: string | undefined;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <Select
+      value={value ?? null}
+      onValueChange={(v) => {
+        if (v) onChange(v);
+      }}
+    >
+      <SelectTrigger className="w-full max-w-sm">
+        <SelectValue placeholder="Select…" />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((opt) => (
+          <SelectItem key={opt.value} value={opt.value}>
+            {opt.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function AttestationMultiInput({
+  options,
+  onChange,
+}: {
+  options: CriterionOption[];
   onChange: (value: string[]) => void;
 }) {
-  const selected = value ?? [];
-  const answered = value !== undefined;
+  // Local draft state only — this component unmounts the instant the parent
+  // records an answer (CriterionRow stops rendering it once the criterion
+  // leaves "needs-info"), so checkboxes must NOT call onChange on every
+  // click: that would commit after the first check and hide the rest of
+  // the group before a second finding could be selected.
+  const [selected, setSelected] = useState<string[]>([]);
 
-  function toggle(id: string) {
-    const next = selected.includes(id)
-      ? selected.filter((f) => f !== id)
-      : [...selected, id];
-    onChange(next);
+  function toggle(optionValue: string) {
+    setSelected((prev) =>
+      prev.includes(optionValue) ? prev.filter((v) => v !== optionValue) : [...prev, optionValue]
+    );
   }
 
   return (
     <div className="space-y-2">
       <div className="grid gap-1.5 sm:grid-cols-2">
-        {subFindings.map((finding) => (
-          <label key={finding.id} className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={selected.includes(finding.id)}
-              onChange={() => toggle(finding.id)}
-              className="size-4 rounded border-input"
-            />
-            {finding.label}
+        {options.map((opt) => (
+          <label key={opt.value} className="flex items-center gap-2 text-sm">
+            <Checkbox checked={selected.includes(opt.value)} onCheckedChange={() => toggle(opt.value)} />
+            {opt.label}
           </label>
         ))}
       </div>
-      {!answered && (
-        <Button type="button" variant="outline" size="sm" onClick={() => onChange(selected)}>
-          Confirm severity findings
-        </Button>
-      )}
+      <Button type="button" variant="outline" size="sm" onClick={() => onChange(selected)}>
+        Confirm selections
+      </Button>
     </div>
   );
 }
 
 function CriterionRow({
   result,
-  subFindings,
   answers,
   onAnswersChange,
 }: {
   result: CriterionResult;
-  subFindings?: { id: string; label: string }[];
   answers: FollowUpAnswers;
   onAnswersChange: (next: FollowUpAnswers) => void;
 }) {
+  const spec = result.evaluator;
+
   return (
     <div className="py-4 first:pt-0 last:pb-0">
       <div className="flex items-start justify-between gap-3">
@@ -139,27 +164,24 @@ function CriterionRow({
         </div>
       </div>
 
-      {result.status === "needs-info" && (
-        <div className="mt-3">
-          {result.id === "thyroid-status" && (
-            <ThyroidStatusInput
-              value={answers.thyroidStatus}
-              onChange={(v) => onAnswersChange({ ...answers, thyroidStatus: v })}
-            />
-          )}
-          {result.id === "prior-therapy" && (
-            <PriorTherapyInput
-              value={answers.priorTherapyAttested}
-              onChange={(v) => onAnswersChange({ ...answers, priorTherapyAttested: v })}
-            />
-          )}
-          {result.id === "disease-severity" && subFindings && (
-            <SeverityFindingsInput
-              subFindings={subFindings}
-              value={answers.severityFindings}
-              onChange={(v) => onAnswersChange({ ...answers, severityFindings: v })}
-            />
-          )}
+      {result.status === "needs-info" && spec.kind === "attestation-single" && (
+        <div className="mt-3 space-y-1.5">
+          <p className="text-xs text-muted-foreground">{spec.question}</p>
+          <AttestationSingleInput
+            options={spec.options}
+            value={answers[result.id] as string | undefined}
+            onChange={(v) => onAnswersChange({ ...answers, [result.id]: v })}
+          />
+        </div>
+      )}
+
+      {result.status === "needs-info" && spec.kind === "attestation-multi" && (
+        <div className="mt-3 space-y-1.5">
+          <p className="text-xs text-muted-foreground">{spec.question}</p>
+          <AttestationMultiInput
+            options={spec.options}
+            onChange={(v) => onAnswersChange({ ...answers, [result.id]: v })}
+          />
         </div>
       )}
     </div>
@@ -188,7 +210,9 @@ export function SobResult({
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Step 2 &middot; 271 eligibility check</CardTitle>
+          <CardIconTitle icon={ShieldCheck} color="blue">
+            Step 2 &middot; 271 eligibility check
+          </CardIconTitle>
           <CardDescription>Simulated eligibility response (mock adapter).</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
@@ -211,17 +235,37 @@ export function SobResult({
 
       <Card>
         <CardHeader>
-          <CardTitle>Step 3 &middot; Policy match</CardTitle>
-          <CardDescription>Matched on: {policyMatch.matchedOn}</CardDescription>
+          <CardIconTitle icon={FileSearch} color="purple">
+            Step 3 &middot; Policy match
+          </CardIconTitle>
+          <CardDescription className="flex flex-wrap items-center gap-2">
+            Matched on: {policyMatch.matchedOn}
+            <MatchMethodBadge method={policyMatch.matchMethod} confidence={policyMatch.matchConfidence} />
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           {policyMatch.mismatchWarning && (
-            <Alert variant="destructive">
-              <AlertTitle>Line-of-business mismatch</AlertTitle>
+            <Alert
+              variant={policyMatch.matchMethod === "none" ? "destructive" : "default"}
+              className={
+                policyMatch.matchMethod === "keyword" || policyMatch.matchMethod === "semantic"
+                  ? "border-accent-orange/30 bg-accent-orange/10 *:[svg]:text-accent-orange"
+                  : undefined
+              }
+            >
+              <AlertTitle>
+                {policyMatch.matchMethod === "none"
+                  ? "No policy document found"
+                  : policyMatch.matchMethod === "semantic"
+                    ? "AI-suggested match — verify before relying on it"
+                    : policyMatch.matchMethod === "keyword"
+                      ? "Keyword-suggested match — verify before relying on it"
+                      : "Line-of-business mismatch"}
+              </AlertTitle>
               <AlertDescription>{policyMatch.mismatchWarning}</AlertDescription>
             </Alert>
           )}
-          {policy ? (
+          {policy && (
             <>
               <p>
                 <span className="text-muted-foreground">Source:</span> {policy.payer}{" "}
@@ -236,48 +280,58 @@ export function SobResult({
                 Initial: {policy.approvalDuration.initial} &middot; Renewal:{" "}
                 {policy.approvalDuration.renewal}
               </p>
-              <Alert>
-                <AlertTitle>Ingestion note</AlertTitle>
-                <AlertDescription>{policy.sourceNote}</AlertDescription>
-              </Alert>
+              {policy.sourceNote && (
+                <Alert>
+                  <AlertTitle>Ingestion note</AlertTitle>
+                  <AlertDescription>{policy.sourceNote}</AlertDescription>
+                </Alert>
+              )}
             </>
-          ) : (
-            <Alert variant="destructive">
-              <AlertTitle>No policy document found</AlertTitle>
-              <AlertDescription>
-                No ingested policy matches this drug/payer combination.
-              </AlertDescription>
-            </Alert>
           )}
         </CardContent>
       </Card>
 
-      {npiLookup.found && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Live NPI lookup</CardTitle>
-            <CardDescription>NPPES NPI Registry &mdash; called live, not mocked.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-            <p>
-              <span className="text-muted-foreground">NPI:</span> {npiLookup.npi}
+      <Card>
+        <CardHeader>
+          <CardIconTitle icon={Stethoscope} color="pink">
+            Step 4 &middot; Prescriber verification
+          </CardIconTitle>
+          <CardDescription>NPPES NPI Registry &mdash; called live, not mocked.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+          {npiLookup.status === "resolved" ? (
+            <>
+              <p>
+                <span className="text-muted-foreground">NPI:</span> {npiLookup.npi}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Provider:</span>{" "}
+                {npiLookup.providerName ?? "—"}
+              </p>
+              <p className="sm:col-span-2">
+                <span className="text-muted-foreground">Taxonomy:</span>{" "}
+                {npiLookup.taxonomyDescription} ({npiLookup.taxonomyCode})
+              </p>
+            </>
+          ) : (
+            <p className="text-muted-foreground sm:col-span-2">
+              {npiLookup.status === "invalid-format" &&
+                "NPI must be 10 digits — nothing was looked up."}
+              {npiLookup.status === "not-found" &&
+                `No NPPES record found for NPI ${npiLookup.npi}.`}
+              {npiLookup.status === "lookup-failed" &&
+                "Couldn't reach the NPPES registry just now. Try submitting again."}
             </p>
-            <p>
-              <span className="text-muted-foreground">Provider:</span>{" "}
-              {npiLookup.providerName ?? "—"}
-            </p>
-            <p className="sm:col-span-2">
-              <span className="text-muted-foreground">Taxonomy:</span>{" "}
-              {npiLookup.taxonomyDescription} ({npiLookup.taxonomyCode})
-            </p>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
       {policy && (
         <Card>
           <CardHeader>
-            <CardTitle>Step 4&ndash;6 &middot; Summary of Benefits</CardTitle>
+            <CardIconTitle icon={ClipboardCheck} color="green">
+              Step 5 &middot; Summary of Benefits
+            </CardIconTitle>
             <CardDescription>
               Does the member meet all of the following criteria? Each item below is
               surfaced with what the system knows &mdash; this is not an approval or
@@ -289,33 +343,35 @@ export function SobResult({
               <CriterionRow
                 key={result.id}
                 result={result}
-                subFindings={policy.criteria.find((c) => c.id === result.id)?.subFindings}
                 answers={answers}
                 onAnswersChange={onAnswersChange}
               />
             ))}
           </CardContent>
-          <CardFooter className="flex flex-col items-start gap-2">
-            <p className="text-xs font-medium text-muted-foreground">
-              Also checked against this policy:
-            </p>
-            <ul className="list-inside list-disc text-xs text-muted-foreground">
-              {policy.notApplicable.map((note) => (
-                <li key={note}>{note}</li>
-              ))}
-            </ul>
-          </CardFooter>
+          {policy.notApplicable.length > 0 && (
+            <CardFooter className="flex flex-col items-start gap-2">
+              <p className="text-xs font-medium text-muted-foreground">
+                Also checked against this policy:
+              </p>
+              <ul className="list-inside list-disc text-xs text-muted-foreground">
+                {policy.notApplicable.map((note) => (
+                  <li key={note}>{note}</li>
+                ))}
+              </ul>
+            </CardFooter>
+          )}
         </Card>
       )}
 
       {allResolved && (
-        <Alert>
-          <AlertTitle>Step 7 &middot; Complete picture</AlertTitle>
+        <Alert className="border-accent-green/30 bg-accent-green/10 *:[svg]:text-accent-green">
+          <CheckCircle2 />
+          <AlertTitle>Step 6 &middot; Complete picture</AlertTitle>
           <AlertDescription>
-            All 5 criteria have a status. This is <strong>not</strong> an approval
-            decision &mdash; it is a surfaced view of what {policyMatch.policy?.payer}{" "}
-            requires for {policyMatch.policy?.drug} under this plan, and what is known
-            so far. {anyNotMet
+            All {results.length} criteria have a status. This is <strong>not</strong> an
+            approval decision &mdash; it is a surfaced view of what {policy?.payer} requires
+            for {policy?.drug} under this plan, and what is known so far.{" "}
+            {anyNotMet
               ? "At least one criterion was not met based on the information captured."
               : "All checkable criteria are satisfied; the requesting office can decide whether to proceed with submission."}
           </AlertDescription>

@@ -2,11 +2,11 @@ import type { PolicyDocument } from "../types";
 
 /**
  * Hand-transcribed from Humana's "Tepezza (teprotumumab) — Pharmacy Coverage
- * Policy" (Medicaid - Indiana, effective 5/1/2026). This is the one policy
- * this demo has ingested — see PolicyMatchResult for what happens when a
- * request doesn't line up with it.
+ * Policy" (Medicaid - Indiana, effective 5/1/2026). Seeded on first run —
+ * see src/lib/policy/store.ts for how ingested documents are persisted.
  */
 export const tepezzaHumanaMedicaidIndiana: PolicyDocument = {
+  id: "tepezza-humana-medicaid-in",
   drug: "Tepezza (teprotumumab)",
   payer: "Humana",
   lineOfBusiness: "Medicaid - Indiana",
@@ -23,6 +23,8 @@ export const tepezzaHumanaMedicaidIndiana: PolicyDocument = {
     "No site-of-care restriction stated",
     "No route-of-administration branching — IV solution is the only listed product",
   ],
+  hasEmbedding: false,
+  createdAt: "2026-02-18T00:00:00.000Z",
   criteria: [
     {
       id: "diagnosis",
@@ -44,8 +46,16 @@ export const tepezzaHumanaMedicaidIndiana: PolicyDocument = {
         "Is euthyroid, or is currently receiving treatment to correct the thyroid levels.",
       systemVerifiable: false,
       evaluator: {
-        kind: "follow-up-single",
-        answerKey: "thyroidStatus",
+        kind: "attestation-single",
+        question: "What is the member's thyroid status?",
+        options: [
+          { value: "euthyroid", label: "Euthyroid" },
+          {
+            value: "being-treated",
+            label: "Currently receiving treatment to correct levels",
+          },
+          { value: "not-controlled", label: "Neither confirmed" },
+        ],
         satisfyingValues: ["euthyroid", "being-treated"],
       },
     },
@@ -56,7 +66,10 @@ export const tepezzaHumanaMedicaidIndiana: PolicyDocument = {
       description:
         "Prescribed by or in consultation with an ophthalmologist, endocrinologist, specialist, or physician who specializes in thyroid eye disease.",
       systemVerifiable: true,
-      evaluator: { kind: "npi-specialty-match" },
+      evaluator: {
+        kind: "npi-specialty-match",
+        specialtyKeywords: ["ophthalmol", "endocrin", "thyroid", "eye"],
+      },
     },
     {
       id: "prior-therapy",
@@ -66,8 +79,18 @@ export const tepezzaHumanaMedicaidIndiana: PolicyDocument = {
         "The prescriber attests the member has not received a prior course of therapy (e.g., up to 8 infusions per lifetime).",
       systemVerifiable: false,
       evaluator: {
-        kind: "follow-up-single",
-        answerKey: "priorTherapyAttested",
+        kind: "attestation-single",
+        question: "Has the member had a prior course of Tepezza therapy?",
+        options: [
+          {
+            value: "attested-no-prior",
+            label: "Prescriber attests: no prior course of therapy",
+          },
+          {
+            value: "has-prior-therapy",
+            label: "Cannot attest / member has had prior therapy",
+          },
+        ],
         satisfyingValues: ["attested-no-prior"],
       },
     },
@@ -78,13 +101,16 @@ export const tepezzaHumanaMedicaidIndiana: PolicyDocument = {
       description:
         "Has moderate to severe thyroid eye disease, defined as at least one of the following findings.",
       systemVerifiable: false,
-      subFindings: [
-        { id: "lid-retraction", label: "≥ 2mm lid retraction" },
-        { id: "soft-tissue", label: "Moderate or severe soft tissue involvement" },
-        { id: "exophthalmos", label: "Exophthalmos ≥ 3mm above normal" },
-        { id: "diplopia", label: "Diplopia" },
-      ],
-      evaluator: { kind: "follow-up-multi-any", answerKey: "severityFindings" },
+      evaluator: {
+        kind: "attestation-multi",
+        question: "Which of the following findings apply?",
+        options: [
+          { value: "lid-retraction", label: "≥ 2mm lid retraction" },
+          { value: "soft-tissue", label: "Moderate or severe soft tissue involvement" },
+          { value: "exophthalmos", label: "Exophthalmos ≥ 3mm above normal" },
+          { value: "diplopia", label: "Diplopia" },
+        ],
+      },
     },
   ],
 };

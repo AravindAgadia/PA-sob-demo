@@ -9,6 +9,7 @@ function evaluateCriterion(
     number: def.number,
     label: def.label,
     systemVerifiable: def.systemVerifiable,
+    evaluator: def.evaluator,
   };
   const spec = def.evaluator;
 
@@ -37,28 +38,54 @@ function evaluateCriterion(
 
     case "npi-specialty-match": {
       const lookup = ctx.npiLookup;
-      if (!lookup || !lookup.found) {
+      if (!lookup) {
         return {
           ...base,
           status: "needs-info",
           detail: "NPI lookup has not resolved a provider yet.",
         };
       }
-      return lookup.matchesRequiredSpecialty
-        ? {
+      switch (lookup.status) {
+        case "invalid-format":
+          return {
             ...base,
-            status: "confirmed",
-            detail: `NPPES returned "${lookup.taxonomyDescription}" for NPI ${lookup.npi} — matches ophthalmology, endocrinology, or a recognized TED specialist.`,
-          }
-        : {
-            ...base,
-            status: "not-met",
-            detail: `NPPES returned "${lookup.taxonomyDescription}" for NPI ${lookup.npi} — does not match the required specialties.`,
+            status: "needs-info",
+            detail: "Ordering provider NPI must be 10 digits.",
           };
+        case "lookup-failed":
+          return {
+            ...base,
+            status: "needs-info",
+            detail: "Couldn't reach the NPPES NPI Registry to verify this prescriber. Try submitting again.",
+          };
+        case "not-found":
+          return {
+            ...base,
+            status: "needs-info",
+            detail: `No NPPES record found for NPI ${lookup.npi}. Double-check the number.`,
+          };
+        case "resolved": {
+          const description = (lookup.taxonomyDescription ?? "").toLowerCase();
+          const matched = spec.specialtyKeywords.some((kw) =>
+            description.includes(kw.toLowerCase())
+          );
+          return matched
+            ? {
+                ...base,
+                status: "confirmed",
+                detail: `NPPES returned "${lookup.taxonomyDescription}" for NPI ${lookup.npi} — matches a required specialty.`,
+              }
+            : {
+                ...base,
+                status: "not-met",
+                detail: `NPPES returned "${lookup.taxonomyDescription}" for NPI ${lookup.npi} — does not match the required specialties (${spec.specialtyKeywords.join(", ")}).`,
+              };
+        }
+      }
     }
 
-    case "follow-up-single": {
-      const value = ctx.answers[spec.answerKey];
+    case "attestation-single": {
+      const value = ctx.answers[def.id];
       if (value === undefined) {
         return {
           ...base,
@@ -66,7 +93,7 @@ function evaluateCriterion(
           detail: "Awaiting a response from the requesting provider.",
         };
       }
-      const satisfied = spec.satisfyingValues.includes(value);
+      const satisfied = spec.satisfyingValues.includes(value as string);
       return satisfied
         ? { ...base, status: "confirmed", detail: "Confirmed by provider response." }
         : {
@@ -76,8 +103,8 @@ function evaluateCriterion(
           };
     }
 
-    case "follow-up-multi-any": {
-      const value = ctx.answers[spec.answerKey];
+    case "attestation-multi": {
+      const value = ctx.answers[def.id] as string[] | undefined;
       if (value === undefined) {
         return {
           ...base,
@@ -85,11 +112,14 @@ function evaluateCriterion(
           detail: "Awaiting a response from the requesting provider.",
         };
       }
+      const labels = spec.options
+        .filter((opt) => value.includes(opt.value))
+        .map((opt) => opt.label);
       return value.length > 0
         ? {
             ...base,
             status: "confirmed",
-            detail: `Provider confirmed: ${value.join(", ")}.`,
+            detail: `Provider confirmed: ${labels.join(", ")}.`,
           }
         : {
             ...base,

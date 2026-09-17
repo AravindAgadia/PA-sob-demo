@@ -32,9 +32,14 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
+
+# generated document store — SQLite db + legacy JSON fixture, both seeded
+# at runtime (see src/lib/db.ts and src/lib/policy/store.ts)
+/data/
 
 # typescript
 *.tsbuildinfo

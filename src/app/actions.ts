@@ -25,7 +25,7 @@ export async function runIntake(intake: IntakeData): Promise<IntakeRunResult> {
     lookupNpi(intake.orderingProviderNpi),
   ]);
 
-  const policyMatch = matchPolicy(intake, eligibility);
+  const policyMatch = await matchPolicy(intake, eligibility);
   const criteria = policyMatch.policy?.criteria ?? [];
   const results = evaluatePolicy(criteria, {
     intake,

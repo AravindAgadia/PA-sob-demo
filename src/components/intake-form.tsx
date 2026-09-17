@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -10,9 +12,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { DrugCombobox } from "@/components/drug-combobox";
+import { IconChip } from "@/components/icon-chip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { IntakeData } from "@/lib/policy/types";
+import { Switch } from "@/components/ui/switch";
+import type { IntakeData, PolicySummary } from "@/lib/policy/types";
 
 const SAMPLE_NPIS = {
   matching: {
@@ -25,28 +30,42 @@ const SAMPLE_NPIS = {
   },
 };
 
-const selectClassName =
-  "border-input flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
-
 export function IntakeForm({
   defaultValues,
+  initialOptions,
+  totalIngested,
   loading,
   onSubmit,
 }: {
   defaultValues: IntakeData;
+  initialOptions: PolicySummary[];
+  totalIngested: number;
   loading: boolean;
   onSubmit: (intake: IntakeData) => void;
 }) {
   const [values, setValues] = useState<IntakeData>(defaultValues);
+  const [selectedPolicy, setSelectedPolicy] = useState<PolicySummary | null>(
+    () => initialOptions.find((d) => d.drug === defaultValues.drug) ?? null
+  );
 
   function update<K extends keyof IntakeData>(key: K, value: IntakeData[K]) {
     setValues((v) => ({ ...v, [key]: value }));
   }
 
+  function handlePolicySelect(policy: PolicySummary | null) {
+    setSelectedPolicy(policy);
+    if (policy) {
+      setValues((v) => ({ ...v, drug: policy.drug, payer: policy.payer }));
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Step 1 &middot; Provider office submits the PA request</CardTitle>
+        <CardTitle className="flex items-center gap-2.5">
+          <IconChip icon={ClipboardList} color="orange" />
+          Step 1 &middot; Provider office submits the PA request
+        </CardTitle>
         <CardDescription>
           Diagnosis isn&apos;t a mandatory intake field today &mdash; shown here as present
           for this demo scenario.
@@ -86,9 +105,17 @@ export function IntakeForm({
             onChange={(e) => update("payer", e.target.value)}
           />
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 sm:col-span-2">
           <Label htmlFor="drug">Drug requested</Label>
-          <Input id="drug" value={values.drug} readOnly className="bg-muted" />
+          <DrugCombobox selected={selectedPolicy} onSelect={handlePolicySelect} initialOptions={initialOptions} />
+          <p className="text-xs text-muted-foreground">
+            {totalIngested.toLocaleString()} polic{totalIngested === 1 ? "y" : "ies"} ingested
+            &mdash;{" "}
+            <Link href="/documents" className="underline underline-offset-2 hover:text-foreground">
+              manage in the Document Library
+            </Link>
+            .
+          </p>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="diagnosis">Diagnosis</Label>
@@ -98,17 +125,18 @@ export function IntakeForm({
             onChange={(e) => update("diagnosis", e.target.value)}
           />
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="buyAndBill">Buy-and-bill</Label>
-          <select
+        <div className="flex items-center justify-between rounded-lg border px-3 py-2">
+          <Label htmlFor="buyAndBill" className="flex-col items-start gap-0.5">
+            Buy-and-bill
+            <span className="text-xs font-normal text-muted-foreground">
+              {values.buyAndBill ? "Routes to medical flow" : "Not buy-and-bill"}
+            </span>
+          </Label>
+          <Switch
             id="buyAndBill"
-            className={selectClassName}
-            value={values.buyAndBill ? "yes" : "no"}
-            onChange={(e) => update("buyAndBill", e.target.value === "yes")}
-          >
-            <option value="yes">Yes (routes to medical flow)</option>
-            <option value="no">No</option>
-          </select>
+            checked={values.buyAndBill}
+            onCheckedChange={(checked) => update("buyAndBill", checked)}
+          />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="dispensingLocation">Dispensing location</Label>
@@ -143,8 +171,16 @@ export function IntakeForm({
               {SAMPLE_NPIS.nonMatching.label}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Looked up live against the NPPES NPI Registry when you submit.
+          <p
+            className={`text-xs ${
+              values.orderingProviderNpi.trim() && !/^\d{10}$/.test(values.orderingProviderNpi.trim())
+                ? "text-amber-600 dark:text-amber-400"
+                : "text-muted-foreground"
+            }`}
+          >
+            {values.orderingProviderNpi.trim() && !/^\d{10}$/.test(values.orderingProviderNpi.trim())
+              ? "NPIs are 10 digits — this won't resolve to a provider as typed."
+              : "Looked up live against the NPPES NPI Registry when you submit."}
           </p>
         </div>
       </CardContent>
