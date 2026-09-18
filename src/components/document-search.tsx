@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Search, X } from "lucide-react";
+import { Loader2, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -19,12 +19,15 @@ export function DocumentSearch({ defaultQuery }: { defaultQuery: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const [value, setValue] = useState(defaultQuery);
+  const [isPending, startTransition] = useTransition();
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => {
-      router.push(buildUrl(pathname, value));
+      startTransition(() => {
+        router.push(buildUrl(pathname, value));
+      });
     }, 300);
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -35,7 +38,11 @@ export function DocumentSearch({ defaultQuery }: { defaultQuery: string }) {
 
   return (
     <div className="relative mb-6">
-      <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+      {isPending ? (
+        <Loader2 className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+      ) : (
+        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+      )}
       <Input
         value={value}
         onChange={(e) => setValue(e.target.value)}

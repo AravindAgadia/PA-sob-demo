@@ -1,7 +1,15 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { CheckCircle2, ClipboardCheck, FileSearch, type LucideIcon, ShieldCheck, Stethoscope } from "lucide-react";
+import {
+  Check,
+  CheckCircle2,
+  ClipboardCheck,
+  FileSearch,
+  type LucideIcon,
+  ShieldCheck,
+  Stethoscope,
+} from "lucide-react";
 import { cn } from "cn";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +55,41 @@ function MatchMethodBadge({ method, confidence }: { method: PolicyMatchMethod; c
     >
       {label}
     </Badge>
+  );
+}
+
+/** Connects each stage of the run vertically — a numbered marker per step,
+ *  joined by a line, so the sequence reads as one continuous workflow
+ *  instead of a stack of unrelated cards. */
+function TimelineStep({
+  number,
+  status,
+  isLast,
+  children,
+}: {
+  number: number;
+  status: "complete" | "current" | "upcoming";
+  isLast?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex gap-4">
+      <div className="flex flex-col items-center">
+        <span
+          aria-hidden
+          className={cn(
+            "flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-colors",
+            status === "complete" && "bg-primary text-primary-foreground",
+            status === "current" && "border-2 border-primary text-primary",
+            status === "upcoming" && "border border-border text-muted-foreground"
+          )}
+        >
+          {status === "complete" ? <Check className="size-4" /> : number}
+        </span>
+        {!isLast && <span aria-hidden className="mt-1 w-px flex-1 bg-border" />}
+      </div>
+      <div className={cn("min-w-0 flex-1", !isLast && "pb-6")}>{children}</div>
+    </div>
   );
 }
 
@@ -208,175 +251,191 @@ export function SobResult({
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardIconTitle icon={ShieldCheck} color="blue">
-            Step 2 &middot; 271 eligibility check
-          </CardIconTitle>
-          <CardDescription>Simulated eligibility response (mock adapter).</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-          <p>
-            <span className="text-muted-foreground">Coverage:</span>{" "}
-            {eligibility.active ? "Active" : "Inactive"}
-          </p>
-          <p>
-            <span className="text-muted-foreground">Payer:</span> {eligibility.payer}
-          </p>
-          <p>
-            <span className="text-muted-foreground">Line of business:</span>{" "}
-            {eligibility.lineOfBusiness}
-          </p>
-          <p>
-            <span className="text-muted-foreground">Plan type:</span> {eligibility.planType}
-          </p>
-        </CardContent>
-      </Card>
+      <div>
+        <TimelineStep number={2} status="complete">
+          <Card>
+            <CardHeader>
+              <CardIconTitle icon={ShieldCheck} color="blue">
+                271 eligibility check
+              </CardIconTitle>
+              <CardDescription>Simulated eligibility response (mock adapter).</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+              <p>
+                <span className="text-muted-foreground">Coverage:</span>{" "}
+                {eligibility.active ? "Active" : "Inactive"}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Payer:</span> {eligibility.payer}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Line of business:</span>{" "}
+                {eligibility.lineOfBusiness}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Plan type:</span> {eligibility.planType}
+              </p>
+            </CardContent>
+          </Card>
+        </TimelineStep>
 
-      <Card>
-        <CardHeader>
-          <CardIconTitle icon={FileSearch} color="purple">
-            Step 3 &middot; Policy match
-          </CardIconTitle>
-          <CardDescription className="flex flex-wrap items-center gap-2">
-            Matched on: {policyMatch.matchedOn}
-            <MatchMethodBadge method={policyMatch.matchMethod} confidence={policyMatch.matchConfidence} />
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          {policyMatch.mismatchWarning && (
-            <Alert
-              variant={policyMatch.matchMethod === "none" ? "destructive" : "default"}
-              className={
-                policyMatch.matchMethod === "keyword" || policyMatch.matchMethod === "semantic"
-                  ? "border-accent-orange/30 bg-accent-orange/10 *:[svg]:text-accent-orange"
-                  : undefined
-              }
-            >
-              <AlertTitle>
-                {policyMatch.matchMethod === "none"
-                  ? "No policy document found"
-                  : policyMatch.matchMethod === "semantic"
-                    ? "AI-suggested match — verify before relying on it"
-                    : policyMatch.matchMethod === "keyword"
-                      ? "Keyword-suggested match — verify before relying on it"
-                      : "Line-of-business mismatch"}
-              </AlertTitle>
-              <AlertDescription>{policyMatch.mismatchWarning}</AlertDescription>
-            </Alert>
-          )}
-          {policy && (
-            <>
-              <p>
-                <span className="text-muted-foreground">Source:</span> {policy.payer}{" "}
-                &ldquo;{policy.drug} &mdash; Pharmacy Coverage Policy&rdquo; ({policy.lineOfBusiness})
-              </p>
-              <p>
-                <span className="text-muted-foreground">Effective / review date:</span>{" "}
-                {policy.effectiveDate} / {policy.reviewDate}
-              </p>
-              <p>
-                <span className="text-muted-foreground">Approval duration:</span>{" "}
-                Initial: {policy.approvalDuration.initial} &middot; Renewal:{" "}
-                {policy.approvalDuration.renewal}
-              </p>
-              {policy.sourceNote && (
-                <Alert>
-                  <AlertTitle>Ingestion note</AlertTitle>
-                  <AlertDescription>{policy.sourceNote}</AlertDescription>
+        <TimelineStep number={3} status="complete">
+          <Card>
+            <CardHeader>
+              <CardIconTitle icon={FileSearch} color="purple">
+                Policy match
+              </CardIconTitle>
+              <CardDescription className="flex flex-wrap items-center gap-2">
+                Matched on: {policyMatch.matchedOn}
+                <MatchMethodBadge method={policyMatch.matchMethod} confidence={policyMatch.matchConfidence} />
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              {policyMatch.mismatchWarning && (
+                <Alert
+                  variant={policyMatch.matchMethod === "none" ? "destructive" : "default"}
+                  className={
+                    policyMatch.matchMethod === "keyword" || policyMatch.matchMethod === "semantic"
+                      ? "border-accent-orange/30 bg-accent-orange/10 *:[svg]:text-accent-orange"
+                      : undefined
+                  }
+                >
+                  <AlertTitle>
+                    {policyMatch.matchMethod === "none"
+                      ? "No policy document found"
+                      : policyMatch.matchMethod === "semantic"
+                        ? "AI-suggested match — verify before relying on it"
+                        : policyMatch.matchMethod === "keyword"
+                          ? "Keyword-suggested match — verify before relying on it"
+                          : "Line-of-business mismatch"}
+                  </AlertTitle>
+                  <AlertDescription>{policyMatch.mismatchWarning}</AlertDescription>
                 </Alert>
               )}
-            </>
-          )}
-        </CardContent>
-      </Card>
+              {policy && (
+                <>
+                  <p>
+                    <span className="text-muted-foreground">Source:</span> {policy.payer}{" "}
+                    &ldquo;{policy.drug} &mdash; Pharmacy Coverage Policy&rdquo; ({policy.lineOfBusiness})
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Effective / review date:</span>{" "}
+                    {policy.effectiveDate} / {policy.reviewDate}
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Approval duration:</span>{" "}
+                    Initial: {policy.approvalDuration.initial} &middot; Renewal:{" "}
+                    {policy.approvalDuration.renewal}
+                  </p>
+                  {policy.sourceNote && (
+                    <Alert>
+                      <AlertTitle>Ingestion note</AlertTitle>
+                      <AlertDescription>{policy.sourceNote}</AlertDescription>
+                    </Alert>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TimelineStep>
 
-      <Card>
-        <CardHeader>
-          <CardIconTitle icon={Stethoscope} color="pink">
-            Step 4 &middot; Prescriber verification
-          </CardIconTitle>
-          <CardDescription>NPPES NPI Registry &mdash; called live, not mocked.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-          {npiLookup.status === "resolved" ? (
-            <>
-              <p>
-                <span className="text-muted-foreground">NPI:</span> {npiLookup.npi}
-              </p>
-              <p>
-                <span className="text-muted-foreground">Provider:</span>{" "}
-                {npiLookup.providerName ?? "—"}
-              </p>
-              <p className="sm:col-span-2">
-                <span className="text-muted-foreground">Taxonomy:</span>{" "}
-                {npiLookup.taxonomyDescription} ({npiLookup.taxonomyCode})
-              </p>
-            </>
+        <TimelineStep number={4} status="complete">
+          <Card>
+            <CardHeader>
+              <CardIconTitle icon={Stethoscope} color="pink">
+                Prescriber verification
+              </CardIconTitle>
+              <CardDescription>NPPES NPI Registry &mdash; called live, not mocked.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+              {npiLookup.status === "resolved" ? (
+                <>
+                  <p>
+                    <span className="text-muted-foreground">NPI:</span> {npiLookup.npi}
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Provider:</span>{" "}
+                    {npiLookup.providerName ?? "—"}
+                  </p>
+                  <p className="sm:col-span-2">
+                    <span className="text-muted-foreground">Taxonomy:</span>{" "}
+                    {npiLookup.taxonomyDescription} ({npiLookup.taxonomyCode})
+                  </p>
+                </>
+              ) : (
+                <p className="text-muted-foreground sm:col-span-2">
+                  {npiLookup.status === "invalid-format" &&
+                    "NPI must be 10 digits — nothing was looked up."}
+                  {npiLookup.status === "not-found" &&
+                    `No NPPES record found for NPI ${npiLookup.npi}.`}
+                  {npiLookup.status === "lookup-failed" &&
+                    "Couldn't reach the NPPES registry just now. Try submitting again."}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </TimelineStep>
+
+        {policy && (
+          <TimelineStep number={5} status={allResolved ? "complete" : "current"}>
+            <Card>
+              <CardHeader>
+                <CardIconTitle icon={ClipboardCheck} color="green">
+                  Summary of Benefits
+                </CardIconTitle>
+                <CardDescription>
+                  Does the member meet all of the following criteria? Each item below is
+                  surfaced with what the system knows &mdash; this is not an approval or
+                  denial decision.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="divide-y">
+                {results.map((result) => (
+                  <CriterionRow
+                    key={result.id}
+                    result={result}
+                    answers={answers}
+                    onAnswersChange={onAnswersChange}
+                  />
+                ))}
+              </CardContent>
+              {policy.notApplicable.length > 0 && (
+                <CardFooter className="flex flex-col items-start gap-2">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Also checked against this policy:
+                  </p>
+                  <ul className="list-inside list-disc text-xs text-muted-foreground">
+                    {policy.notApplicable.map((note) => (
+                      <li key={note}>{note}</li>
+                    ))}
+                  </ul>
+                </CardFooter>
+              )}
+            </Card>
+          </TimelineStep>
+        )}
+
+        <TimelineStep number={6} status={allResolved ? "complete" : "upcoming"} isLast>
+          {allResolved ? (
+            <Alert className="border-accent-green/30 bg-accent-green/10 *:[svg]:text-accent-green">
+              <CheckCircle2 />
+              <AlertTitle>Complete picture</AlertTitle>
+              <AlertDescription>
+                All {results.length} criteria have a status. This is <strong>not</strong> an
+                approval decision &mdash; it is a surfaced view of what {policy?.payer} requires
+                for {policy?.drug} under this plan, and what is known so far.{" "}
+                {anyNotMet
+                  ? "At least one criterion was not met based on the information captured."
+                  : "All checkable criteria are satisfied; the requesting office can decide whether to proceed with submission."}
+              </AlertDescription>
+            </Alert>
           ) : (
-            <p className="text-muted-foreground sm:col-span-2">
-              {npiLookup.status === "invalid-format" &&
-                "NPI must be 10 digits — nothing was looked up."}
-              {npiLookup.status === "not-found" &&
-                `No NPPES record found for NPI ${npiLookup.npi}.`}
-              {npiLookup.status === "lookup-failed" &&
-                "Couldn't reach the NPPES registry just now. Try submitting again."}
+            <p className="pt-1 text-sm text-muted-foreground">
+              Complete picture &mdash; available once every criterion above has a status.
             </p>
           )}
-        </CardContent>
-      </Card>
-
-      {policy && (
-        <Card>
-          <CardHeader>
-            <CardIconTitle icon={ClipboardCheck} color="green">
-              Step 5 &middot; Summary of Benefits
-            </CardIconTitle>
-            <CardDescription>
-              Does the member meet all of the following criteria? Each item below is
-              surfaced with what the system knows &mdash; this is not an approval or
-              denial decision.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="divide-y">
-            {results.map((result) => (
-              <CriterionRow
-                key={result.id}
-                result={result}
-                answers={answers}
-                onAnswersChange={onAnswersChange}
-              />
-            ))}
-          </CardContent>
-          {policy.notApplicable.length > 0 && (
-            <CardFooter className="flex flex-col items-start gap-2">
-              <p className="text-xs font-medium text-muted-foreground">
-                Also checked against this policy:
-              </p>
-              <ul className="list-inside list-disc text-xs text-muted-foreground">
-                {policy.notApplicable.map((note) => (
-                  <li key={note}>{note}</li>
-                ))}
-              </ul>
-            </CardFooter>
-          )}
-        </Card>
-      )}
-
-      {allResolved && (
-        <Alert className="border-accent-green/30 bg-accent-green/10 *:[svg]:text-accent-green">
-          <CheckCircle2 />
-          <AlertTitle>Step 6 &middot; Complete picture</AlertTitle>
-          <AlertDescription>
-            All {results.length} criteria have a status. This is <strong>not</strong> an
-            approval decision &mdash; it is a surfaced view of what {policy?.payer} requires
-            for {policy?.drug} under this plan, and what is known so far.{" "}
-            {anyNotMet
-              ? "At least one criterion was not met based on the information captured."
-              : "All checkable criteria are satisfied; the requesting office can decide whether to proceed with submission."}
-          </AlertDescription>
-        </Alert>
-      )}
+        </TimelineStep>
+      </div>
 
       <Separator />
 

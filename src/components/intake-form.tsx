@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, Loader2 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,12 +13,26 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { cn } from "cn";
 import { DrugCombobox } from "@/components/drug-combobox";
 import { IconChip } from "@/components/icon-chip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import type { IntakeData, PolicySummary } from "@/lib/policy/types";
+
+/** Fields required to run eligibility/policy-match/NPI lookup. Diagnosis
+ *  is deliberately excluded — it's not a mandatory intake field today (see
+ *  the card description below). */
+const REQUIRED_FIELDS: { key: keyof IntakeData; label: string }[] = [
+  { key: "patientName", label: "Patient name" },
+  { key: "patientDob", label: "Date of birth" },
+  { key: "insuranceId", label: "Insurance ID" },
+  { key: "payer", label: "Payer" },
+  { key: "drug", label: "Drug requested" },
+  { key: "dispensingLocation", label: "Dispensing location" },
+  { key: "orderingProviderNpi", label: "Ordering/rendering provider NPI" },
+];
 
 const SAMPLE_NPIS = {
   matching: {
@@ -47,6 +62,7 @@ export function IntakeForm({
   const [selectedPolicy, setSelectedPolicy] = useState<PolicySummary | null>(
     () => initialOptions.find((d) => d.drug === defaultValues.drug) ?? null
   );
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
   function update<K extends keyof IntakeData>(key: K, value: IntakeData[K]) {
     setValues((v) => ({ ...v, [key]: value }));
@@ -57,6 +73,18 @@ export function IntakeForm({
     if (policy) {
       setValues((v) => ({ ...v, drug: policy.drug, payer: policy.payer }));
     }
+  }
+
+  const missingFields = REQUIRED_FIELDS.filter((f) => !String(values[f.key]).trim());
+
+  function isEmpty(key: keyof IntakeData) {
+    return attemptedSubmit && !String(values[key]).trim();
+  }
+
+  function handleSubmit() {
+    setAttemptedSubmit(true);
+    if (missingFields.length > 0) return;
+    onSubmit(values);
   }
 
   return (
@@ -73,40 +101,58 @@ export function IntakeForm({
       </CardHeader>
       <CardContent className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor="patientName">Patient name</Label>
+          <Label htmlFor="patientName">
+            Patient name <span className="text-destructive">*</span>
+          </Label>
           <Input
             id="patientName"
             value={values.patientName}
             onChange={(e) => update("patientName", e.target.value)}
+            aria-invalid={isEmpty("patientName")}
+            className={cn(isEmpty("patientName") && "border-destructive")}
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="patientDob">Date of birth</Label>
+          <Label htmlFor="patientDob">
+            Date of birth <span className="text-destructive">*</span>
+          </Label>
           <Input
             id="patientDob"
             type="date"
             value={values.patientDob}
             onChange={(e) => update("patientDob", e.target.value)}
+            aria-invalid={isEmpty("patientDob")}
+            className={cn(isEmpty("patientDob") && "border-destructive")}
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="insuranceId">Insurance ID</Label>
+          <Label htmlFor="insuranceId">
+            Insurance ID <span className="text-destructive">*</span>
+          </Label>
           <Input
             id="insuranceId"
             value={values.insuranceId}
             onChange={(e) => update("insuranceId", e.target.value)}
+            aria-invalid={isEmpty("insuranceId")}
+            className={cn(isEmpty("insuranceId") && "border-destructive")}
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="payer">Payer</Label>
+          <Label htmlFor="payer">
+            Payer <span className="text-destructive">*</span>
+          </Label>
           <Input
             id="payer"
             value={values.payer}
             onChange={(e) => update("payer", e.target.value)}
+            aria-invalid={isEmpty("payer")}
+            className={cn(isEmpty("payer") && "border-destructive")}
           />
         </div>
         <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor="drug">Drug requested</Label>
+          <Label htmlFor="drug">
+            Drug requested <span className="text-destructive">*</span>
+          </Label>
           <DrugCombobox selected={selectedPolicy} onSelect={handlePolicySelect} initialOptions={initialOptions} />
           <p className="text-xs text-muted-foreground">
             {totalIngested.toLocaleString()} polic{totalIngested === 1 ? "y" : "ies"} ingested
@@ -139,19 +185,28 @@ export function IntakeForm({
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="dispensingLocation">Dispensing location</Label>
+          <Label htmlFor="dispensingLocation">
+            Dispensing location <span className="text-destructive">*</span>
+          </Label>
           <Input
             id="dispensingLocation"
             value={values.dispensingLocation}
             onChange={(e) => update("dispensingLocation", e.target.value)}
+            aria-invalid={isEmpty("dispensingLocation")}
+            className={cn(isEmpty("dispensingLocation") && "border-destructive")}
           />
         </div>
         <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor="npi">Ordering/rendering provider NPI</Label>
+          <Label htmlFor="npi">
+            Ordering/rendering provider NPI <span className="text-destructive">*</span>
+          </Label>
           <Input
             id="npi"
             value={values.orderingProviderNpi}
             onChange={(e) => update("orderingProviderNpi", e.target.value)}
+            placeholder="10 digits"
+            aria-invalid={isEmpty("orderingProviderNpi")}
+            className={cn(isEmpty("orderingProviderNpi") && "border-destructive")}
           />
           <div className="flex flex-wrap gap-2 pt-1">
             <Button
@@ -184,8 +239,17 @@ export function IntakeForm({
           </p>
         </div>
       </CardContent>
-      <CardFooter>
-        <Button disabled={loading} onClick={() => onSubmit(values)}>
+      <CardFooter className="flex-col items-start gap-3">
+        {attemptedSubmit && missingFields.length > 0 && (
+          <Alert variant="destructive">
+            <AlertTitle>Missing required fields</AlertTitle>
+            <AlertDescription>
+              Fill in: {missingFields.map((f) => f.label).join(", ")}.
+            </AlertDescription>
+          </Alert>
+        )}
+        <Button disabled={loading} onClick={handleSubmit}>
+          {loading && <Loader2 className="animate-spin" />}
           {loading
             ? "Running eligibility, policy match, and NPI lookup…"
             : "Submit PA request"}

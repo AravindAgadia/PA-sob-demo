@@ -486,7 +486,12 @@ export function DocumentForm() {
                 </>
               )}
             </Button>
-            {extractError && <p className="text-xs text-destructive">{extractError}</p>}
+            {extractError && (
+              <Alert variant="destructive">
+                <AlertTitle>Couldn&apos;t extract this document</AlertTitle>
+                <AlertDescription>{extractError}</AlertDescription>
+              </Alert>
+            )}
             {extractNotice && <p className="text-xs text-accent-green">{extractNotice}</p>}
           </CardContent>
         </Card>

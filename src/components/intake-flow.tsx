@@ -65,9 +65,11 @@ export function IntakeFlow({
     try {
       const result = await runIntake(intake);
       setRun(result);
-    } catch {
+    } catch (err) {
       setError(
-        "Couldn't complete this request — the eligibility check, NPI lookup, or policy match failed. Check your connection and try again."
+        err instanceof Error && err.message
+          ? err.message
+          : "Couldn't complete this request — the eligibility check, NPI lookup, or policy match failed. Check your connection and try again."
       );
     } finally {
       setLoading(false);

@@ -25,7 +25,14 @@ export async function runIntake(intake: IntakeData): Promise<IntakeRunResult> {
     lookupNpi(intake.orderingProviderNpi),
   ]);
 
-  const policyMatch = await matchPolicy(intake, eligibility);
+  let policyMatch: PolicyMatchResult;
+  try {
+    policyMatch = await matchPolicy(intake, eligibility);
+  } catch (err) {
+    throw new Error(
+      `Couldn't look up the matching policy document (database error): ${err instanceof Error ? err.message : "unknown error"}`
+    );
+  }
   const criteria = policyMatch.policy?.criteria ?? [];
   const results = evaluatePolicy(criteria, {
     intake,
