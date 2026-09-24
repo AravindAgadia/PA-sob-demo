@@ -44,6 +44,7 @@ import type {
 type EvaluatorKind = CriterionEvaluatorSpec["kind"];
 
 const STEP_LABELS = ["Policy details", "Source document", "Criteria"];
+const STEP_COLORS: StepperStep["color"][] = ["teal", "purple", "blue"];
 
 const INTAKE_FIELDS: { value: keyof IntakeData; label: string }[] = [
   { value: "diagnosis", label: "Diagnosis" },
@@ -257,6 +258,7 @@ export function DocumentForm() {
 
   const stepperSteps: StepperStep[] = STEP_LABELS.map((label, i) => ({
     label,
+    color: STEP_COLORS[i],
     status: i < step ? "complete" : i === step ? "current" : "upcoming",
   }));
 

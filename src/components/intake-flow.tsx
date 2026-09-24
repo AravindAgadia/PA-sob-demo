@@ -50,25 +50,28 @@ export function IntakeFlow({
   const allResolved = results.length > 0 && results.every((r) => r.status !== "needs-info");
 
   const steps: StepperStep[] = [
-    { label: "Submit request", status: !run ? "current" : "complete" },
-    { label: "Eligibility check", status: !run ? "upcoming" : "complete" },
-    { label: "Policy match", status: !run ? "upcoming" : "complete" },
-    { label: "Prescriber check", status: !run ? "upcoming" : "complete" },
+    { label: "Submit", status: !run ? "current" : "complete", color: "orange" },
+    { label: "Eligibility", status: !run ? "upcoming" : "complete", color: "blue" },
+    { label: "Policy match", status: !run ? "upcoming" : "complete", color: "purple" },
+    { label: "Prescriber", status: !run ? "upcoming" : "complete", color: "pink" },
     {
-      label: "Summary of Benefits",
+      label: "Benefits",
       status: !run ? "upcoming" : decision === "pending" ? "current" : "complete",
+      color: "green",
     },
   ];
   if (decision === "declined") {
-    steps.push({ label: "Case closed", status: "complete" });
+    steps.push({ label: "Closed", status: "complete", color: "orange" });
   } else {
     steps.push({
-      label: "Provider questions",
+      label: "Questions",
       status: !run || decision === "pending" ? "upcoming" : allResolved ? "complete" : "current",
+      color: "green",
     });
     steps.push({
-      label: "Complete picture",
+      label: "Complete",
       status: run && decision === "proceeded" && allResolved ? "current" : "upcoming",
+      color: "green",
     });
   }
 
