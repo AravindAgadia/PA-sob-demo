@@ -145,14 +145,16 @@ function coercePolicy(raw: unknown): ExtractedPolicy {
   };
 }
 
+type ChatContentPart =
+  | { type: "text"; text: string }
+  | { type: "file"; file: { filename: string; file_data: string } };
+
 /**
- * Extracts a structured policy draft from pasted document text via an
- * OpenAI chat completion. The result only ever prefills the "Add document"
- * form — it still goes through the same manual review and server-side
- * validation as a hand-entered policy, so a malformed or incomplete
- * extraction can't silently produce a bad ingested document.
+ * Shared OpenAI call + response handling for both extraction entry points
+ * below — only the user message content differs (pasted text vs. an
+ * uploaded file part).
  */
-export async function extractPolicyFromText(rawText: string): Promise<ExtractResult> {
+async function runExtraction(content: ChatContentPart[]): Promise<ExtractResult> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return {
@@ -160,11 +162,6 @@ export async function extractPolicyFromText(rawText: string): Promise<ExtractRes
       error:
         "No OpenAI API key configured. Add OPENAI_API_KEY to .env.local (and to Vercel's project Environment Variables for production), then restart or redeploy.",
     };
-  }
-
-  const trimmed = rawText.trim();
-  if (!trimmed) {
-    return { ok: false, error: "Paste the policy document text above first." };
   }
 
   try {
@@ -180,7 +177,7 @@ export async function extractPolicyFromText(rawText: string): Promise<ExtractRes
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: trimmed.slice(0, MAX_INPUT_CHARS) },
+          { role: "user", content },
         ],
       }),
     });
@@ -191,14 +188,14 @@ export async function extractPolicyFromText(rawText: string): Promise<ExtractRes
     }
 
     const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) {
+    const responseContent = data.choices?.[0]?.message?.content;
+    if (!responseContent) {
       return { ok: false, error: "OpenAI returned an empty response." };
     }
 
     let parsed: unknown;
     try {
-      parsed = JSON.parse(content);
+      parsed = JSON.parse(responseContent);
     } catch {
       return { ok: false, error: "OpenAI's response wasn't valid JSON. Try again." };
     }
@@ -208,7 +205,7 @@ export async function extractPolicyFromText(rawText: string): Promise<ExtractRes
       return {
         ok: false,
         error:
-          "Couldn't find any extractable criteria in this text. Try pasting more of the policy, or enter criteria manually.",
+          "Couldn't find any extractable criteria in this document. Try a different file or excerpt, or enter criteria manually.",
       };
     }
 
@@ -216,4 +213,40 @@ export async function extractPolicyFromText(rawText: string): Promise<ExtractRes
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Extraction failed. Try again." };
   }
+}
+
+/**
+ * Extracts a structured policy draft from pasted document text via an
+ * OpenAI chat completion. The result only ever prefills the "Add document"
+ * form — it still goes through the same manual review and server-side
+ * validation as a hand-entered policy, so a malformed or incomplete
+ * extraction can't silently produce a bad ingested document.
+ */
+export async function extractPolicyFromText(rawText: string): Promise<ExtractResult> {
+  const trimmed = rawText.trim();
+  if (!trimmed) {
+    return { ok: false, error: "Paste the policy document text above first." };
+  }
+  return runExtraction([{ type: "text", text: trimmed.slice(0, MAX_INPUT_CHARS) }]);
+}
+
+/**
+ * Same extraction, but from an uploaded PDF instead of pasted text — the
+ * file is sent to OpenAI directly (as base64) rather than parsed locally,
+ * which keeps this project dependency-free (no local PDF-parsing library).
+ */
+export async function extractPolicyFromFile(
+  base64Data: string,
+  filename: string
+): Promise<ExtractResult> {
+  if (!base64Data) {
+    return { ok: false, error: "No file data was received." };
+  }
+  return runExtraction([
+    { type: "file", file: { filename, file_data: `data:application/pdf;base64,${base64Data}` } },
+    {
+      type: "text",
+      text: "Extract the prior-authorization criteria from the attached coverage policy document.",
+    },
+  ]);
 }

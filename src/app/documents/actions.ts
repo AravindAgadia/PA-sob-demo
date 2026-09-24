@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { extractPolicyFromText, type ExtractResult } from "@/lib/policy/extract";
+import { extractPolicyFromFile, extractPolicyFromText, type ExtractResult } from "@/lib/policy/extract";
 import {
   addPolicy,
   deletePolicy,
@@ -102,4 +102,33 @@ export async function searchPolicies(query: string): Promise<PolicySummary[]> {
  *  only ever prefills the "Add document" form for manual review. */
 export async function extractPolicy(rawText: string): Promise<ExtractResult> {
   return extractPolicyFromText(rawText);
+}
+
+/** Generous cap for an uploaded PDF — well under OpenAI's request-size
+ *  limits once base64-encoded, and no policy document should need more. */
+const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+
+/** Same as {@link extractPolicy}, but from an uploaded PDF file rather than
+ *  pasted text — takes FormData since a File can't cross the Server Action
+ *  boundary as a plain argument. */
+export async function extractPolicyFromUpload(formData: FormData): Promise<ExtractResult> {
+  const file = formData.get("file");
+  if (!(file instanceof File)) {
+    return { ok: false, error: "No file was received by the server." };
+  }
+  if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+    return {
+      ok: false,
+      error: "Only PDF files can be uploaded here — for a text file, paste its contents instead.",
+    };
+  }
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return {
+      ok: false,
+      error: `"${file.name}" is too large (max ${MAX_UPLOAD_BYTES / (1024 * 1024)} MB).`,
+    };
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  return extractPolicyFromFile(buffer.toString("base64"), file.name);
 }

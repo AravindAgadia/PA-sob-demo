@@ -1,8 +1,19 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, FileText, ListChecks, Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  FileText,
+  ListChecks,
+  Loader2,
+  Plus,
+  Sparkles,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,7 +31,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Stepper, type StepperStep } from "@/components/stepper";
 import { Textarea } from "@/components/ui/textarea";
-import { createPolicyDocument, extractPolicy } from "@/app/documents/actions";
+import { createPolicyDocument, extractPolicy, extractPolicyFromUpload } from "@/app/documents/actions";
 import type { ExtractedCriterion } from "@/lib/policy/extract";
 import type {
   CriterionDefinition,
@@ -46,6 +57,10 @@ const EVALUATOR_KINDS: { value: EvaluatorKind; label: string }[] = [
   { value: "attestation-single", label: "Single-choice attestation" },
   { value: "attestation-multi", label: "Multi-select attestation (any selected = met)" },
 ];
+
+/** Mirrors the server-side cap in documents/actions.ts — checked here too
+ *  so an oversized file fails fast instead of after a round trip. */
+const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 
 let draftKeySeq = 0;
 function nextDraftKey() {
@@ -222,6 +237,8 @@ export function DocumentForm() {
   const [isExtracting, startExtractTransition] = useTransition();
   const [extractError, setExtractError] = useState<string | null>(null);
   const [extractNotice, setExtractNotice] = useState<string | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [drug, setDrug] = useState("");
   const [payer, setPayer] = useState("");
@@ -278,11 +295,47 @@ export function DocumentForm() {
     setStep((s) => Math.max(s - 1, 0));
   }
 
+  async function handleFileSelect(file: File) {
+    setExtractError(null);
+    setExtractNotice(null);
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    if (isPdf) {
+      if (file.size > MAX_UPLOAD_BYTES) {
+        setExtractError(
+          `"${file.name}" is too large (max ${MAX_UPLOAD_BYTES / (1024 * 1024)} MB). Try a smaller file, or paste the text instead.`
+        );
+        return;
+      }
+      setUploadedFile(file);
+      setRawText("");
+      return;
+    }
+    // Anything else we treat as plain text and read it straight into the
+    // paste box — only PDFs need the server round trip, since text files
+    // are already what extractPolicyFromText expects.
+    setUploadedFile(null);
+    setRawText(await file.text());
+  }
+
+  function clearUploadedFile() {
+    setUploadedFile(null);
+    setExtractError(null);
+    setExtractNotice(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
   function handleExtract() {
     setExtractError(null);
     setExtractNotice(null);
     startExtractTransition(async () => {
-      const result = await extractPolicy(rawText);
+      let result;
+      if (uploadedFile) {
+        const formData = new FormData();
+        formData.set("file", uploadedFile);
+        result = await extractPolicyFromUpload(formData);
+      } else {
+        result = await extractPolicy(rawText);
+      }
       if (!result.ok) {
         setExtractError(result.error);
         return;
@@ -454,26 +507,74 @@ export function DocumentForm() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2.5">
               <IconChip icon={Sparkles} color="purple" />
-              Source document text
+              Source document
             </CardTitle>
             <CardDescription>
-              Paste the policy text here, then auto-extract to fill in the Policy details and
-              Criteria steps from it — review and edit the result before saving. This step is
-              optional; you can still enter everything by hand.
+              Upload the policy PDF, or paste its text below, then auto-extract to fill in the
+              Policy details and Criteria steps from it — review and edit the result before
+              saving. This step is optional; you can still enter everything by hand.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Textarea
-              className="min-h-48"
-              value={rawText}
-              onChange={(e) => setRawText(e.target.value)}
-              placeholder="Paste the coverage policy document text here…"
-            />
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isExtracting}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload /> Upload PDF or text file
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,application/pdf,.txt,text/plain,.md"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (file) void handleFileSelect(file);
+                }}
+              />
+              {uploadedFile && (
+                <Badge variant="secondary" className="gap-1.5 py-1 pr-1">
+                  <FileText className="size-3" />
+                  {uploadedFile.name}
+                  <button
+                    type="button"
+                    onClick={clearUploadedFile}
+                    aria-label={`Remove ${uploadedFile.name}`}
+                    className="rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </Badge>
+              )}
+            </div>
+
+            {uploadedFile ? (
+              <Alert>
+                <AlertTitle>Ready to extract from {uploadedFile.name}</AlertTitle>
+                <AlertDescription>
+                  The PDF is sent directly to the extraction model — nothing is parsed locally.
+                  Remove it above to paste text instead.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <Textarea
+                className="min-h-48"
+                value={rawText}
+                onChange={(e) => setRawText(e.target.value)}
+                placeholder="…or paste the coverage policy document text here"
+              />
+            )}
+
             <Button
               type="button"
               variant="outline"
               size="sm"
-              disabled={isExtracting || !rawText.trim()}
+              disabled={isExtracting || (!rawText.trim() && !uploadedFile)}
               onClick={handleExtract}
             >
               {isExtracting ? (
