@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, aravind]
+  pull_request:
+
+jobs:
+  lint-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      # `/` and `/documents` are dynamic routes (server-rendered on
+      # demand), so the build never touches the database or OpenAI at
+      # build time — no secrets needed here.
+      - run: npm run build

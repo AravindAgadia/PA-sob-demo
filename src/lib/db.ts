@@ -1,4 +1,5 @@
 import { Pool } from "pg";
+import { getDatabaseUrl } from "@/lib/env";
 
 /**
  * Real, network-accessible Postgres — required for serverless deployment
@@ -66,15 +67,17 @@ const SCHEMA_SQL = `
 `;
 
 function createPool(): Pool {
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
-    throw new Error(
-      "DATABASE_URL is not set. Add your Postgres connection string to .env.local (and to Vercel's project Environment Variables for production)."
-    );
-  }
+  const connectionString = getDatabaseUrl();
+  const isLocal = connectionString.includes("localhost") || connectionString.includes("127.0.0.1");
+  // Managed Postgres providers (Vercel Postgres, Neon, Supabase, RDS, ...)
+  // all present valid, publicly-trusted certificates — verify them by
+  // default. DATABASE_SSL_INSECURE=true is an explicit escape hatch for a
+  // self-hosted instance with a self-signed cert; never set it against a
+  // provider you don't control.
+  const allowInsecureTls = process.env.DATABASE_SSL_INSECURE === "true";
   return new Pool({
     connectionString,
-    ssl: connectionString.includes("localhost") ? false : { rejectUnauthorized: false },
+    ssl: isLocal ? false : { rejectUnauthorized: !allowInsecureTls },
     max: 5,
   });
 }

@@ -1,3 +1,5 @@
+import { log } from "@/lib/log";
+
 const EXTRACTION_MODEL = "gpt-4o-mini";
 const MAX_INPUT_CHARS = 50_000;
 
@@ -184,7 +186,8 @@ async function runExtraction(content: ChatContentPart[]): Promise<ExtractResult>
 
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
-      return { ok: false, error: `OpenAI request failed (HTTP ${res.status}). ${detail.slice(0, 300)}` };
+      log.error("OpenAI extraction request failed", { status: res.status, detail: detail.slice(0, 500) });
+      return { ok: false, error: `OpenAI request failed (HTTP ${res.status}). Try again in a moment.` };
     }
 
     const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
@@ -211,7 +214,8 @@ async function runExtraction(content: ChatContentPart[]): Promise<ExtractResult>
 
     return { ok: true, policy };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Extraction failed. Try again." };
+    log.error("Extraction request threw", { message: err instanceof Error ? err.message : String(err) });
+    return { ok: false, error: "Extraction failed — couldn't reach the extraction service. Try again." };
   }
 }
 
