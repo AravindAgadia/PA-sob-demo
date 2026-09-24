@@ -21,7 +21,7 @@ export function SiteHeader() {
           <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-accent-blue to-accent-purple text-white shadow-sm">
             <ShieldCheck className="size-4" />
           </span>
-          <span className="text-sm font-semibold tracking-tight">PriorAuth Copilot</span>
+          <span className="text-sm font-semibold tracking-tight">Policy Matrix</span>
           <Badge variant="secondary" className="text-[10px]">
             Demo
           </Badge>

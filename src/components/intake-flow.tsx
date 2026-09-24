@@ -9,16 +9,16 @@ import { Stepper, type StepperStep } from "@/components/stepper";
 import { evaluatePolicy } from "@/lib/policy/evaluator";
 import type { CaseDecision, FollowUpAnswers, IntakeData, PolicySummary } from "@/lib/policy/types";
 
-const DEFAULT_INTAKE: IntakeData = {
-  patientName: "Maria Alvarez",
-  patientDob: "1985-03-14",
-  insuranceId: "HUM-IN-88213045",
-  payer: "Humana",
-  drug: "Tepezza (teprotumumab)",
-  diagnosis: "Thyroid eye disease (E0500)",
-  buyAndBill: true,
-  orderingProviderNpi: "1871588442",
-  dispensingLocation: "Physician office",
+const BLANK_INTAKE: IntakeData = {
+  patientName: "",
+  patientDob: "",
+  insuranceId: "",
+  payer: "",
+  drug: "",
+  diagnosis: "",
+  buyAndBill: false,
+  orderingProviderNpi: "",
+  dispensingLocation: "",
 };
 
 export function IntakeFlow({
@@ -143,7 +143,7 @@ export function IntakeFlow({
 
       {!run ? (
         <IntakeForm
-          defaultValues={DEFAULT_INTAKE}
+          defaultValues={BLANK_INTAKE}
           initialOptions={initialOptions}
           totalIngested={totalIngested}
           loading={loading}

@@ -34,17 +34,6 @@ const REQUIRED_FIELDS: { key: keyof IntakeData; label: string }[] = [
   { key: "orderingProviderNpi", label: "Ordering/rendering provider NPI" },
 ];
 
-const SAMPLE_NPIS = {
-  matching: {
-    value: "1871588442",
-    label: "Use sample ophthalmologist NPI (Indianapolis, IN)",
-  },
-  nonMatching: {
-    value: "1376714063",
-    label: "Use sample family-medicine NPI (should fail)",
-  },
-};
-
 export function IntakeForm({
   defaultValues,
   initialOptions,
@@ -208,24 +197,6 @@ export function IntakeForm({
             aria-invalid={isEmpty("orderingProviderNpi")}
             className={cn(isEmpty("orderingProviderNpi") && "border-destructive")}
           />
-          <div className="flex flex-wrap gap-2 pt-1">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => update("orderingProviderNpi", SAMPLE_NPIS.matching.value)}
-            >
-              {SAMPLE_NPIS.matching.label}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => update("orderingProviderNpi", SAMPLE_NPIS.nonMatching.value)}
-            >
-              {SAMPLE_NPIS.nonMatching.label}
-            </Button>
-          </div>
           <p
             className={`text-xs ${
               values.orderingProviderNpi.trim() && !/^\d{10}$/.test(values.orderingProviderNpi.trim())

@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PA Summary of Benefits Demo",
-  description: "Tepezza / Humana Medicaid-Indiana prior authorization demo",
+  title: "Policy Matrix",
+  description: "Prior authorization intake, policy matching, and Summary of Benefits.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
