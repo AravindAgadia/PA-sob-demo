@@ -150,16 +150,26 @@
 .app-shell-background {
   background-color: var(--background);
   background-image:
-    radial-gradient(70rem 34rem at 12% -8%, color-mix(in oklch, var(--accent-blue) 14%, transparent), transparent 60%),
-    radial-gradient(60rem 30rem at 100% 0%, color-mix(in oklch, var(--accent-purple) 12%, transparent), transparent 55%),
-    radial-gradient(50rem 26rem at 50% 110%, color-mix(in oklch, var(--accent-teal) 8%, transparent), transparent 60%);
-  background-repeat: no-repeat;
+    radial-gradient(circle, color-mix(in oklch, var(--foreground) 6%, transparent) 1px, transparent 1px),
+    radial-gradient(70rem 34rem at 12% -8%, color-mix(in oklch, var(--accent-blue) 18%, transparent), transparent 60%),
+    radial-gradient(60rem 30rem at 100% 0%, color-mix(in oklch, var(--accent-purple) 16%, transparent), transparent 55%),
+    radial-gradient(55rem 30rem at 100% 105%, color-mix(in oklch, var(--accent-teal) 12%, transparent), transparent 60%),
+    radial-gradient(45rem 24rem at -5% 100%, color-mix(in oklch, var(--accent-pink) 10%, transparent), transparent 58%);
+  background-size:
+    22px 22px,
+    auto,
+    auto,
+    auto,
+    auto;
+  background-repeat: repeat, no-repeat, no-repeat, no-repeat, no-repeat;
   background-attachment: fixed;
 }
 
 .dark .app-shell-background {
   background-image:
-    radial-gradient(70rem 34rem at 12% -8%, color-mix(in oklch, var(--accent-blue) 22%, transparent), transparent 60%),
-    radial-gradient(60rem 30rem at 100% 0%, color-mix(in oklch, var(--accent-purple) 20%, transparent), transparent 55%),
-    radial-gradient(50rem 26rem at 50% 110%, color-mix(in oklch, var(--accent-teal) 14%, transparent), transparent 60%);
+    radial-gradient(circle, color-mix(in oklch, var(--foreground) 7%, transparent) 1px, transparent 1px),
+    radial-gradient(70rem 34rem at 12% -8%, color-mix(in oklch, var(--accent-blue) 26%, transparent), transparent 60%),
+    radial-gradient(60rem 30rem at 100% 0%, color-mix(in oklch, var(--accent-purple) 24%, transparent), transparent 55%),
+    radial-gradient(55rem 30rem at 100% 105%, color-mix(in oklch, var(--accent-teal) 18%, transparent), transparent 60%),
+    radial-gradient(45rem 24rem at -5% 100%, color-mix(in oklch, var(--accent-pink) 15%, transparent), transparent 58%);
 }

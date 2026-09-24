@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { cn } from "cn";
 import {
   ArrowLeft,
   ArrowRight,
@@ -233,6 +234,7 @@ export function DocumentForm() {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState(0);
+  const [stepDirection, setStepDirection] = useState<"forward" | "backward">("forward");
 
   const [isExtracting, startExtractTransition] = useTransition();
   const [extractError, setExtractError] = useState<string | null>(null);
@@ -287,11 +289,13 @@ export function DocumentForm() {
       setError("Drug, payer, and line of business are required before continuing.");
       return;
     }
+    setStepDirection("forward");
     setStep((s) => Math.min(s + 1, STEP_LABELS.length - 1));
   }
 
   function goBack() {
     setError(null);
+    setStepDirection("backward");
     setStep((s) => Math.max(s - 1, 0));
   }
 
@@ -402,6 +406,13 @@ export function DocumentForm() {
         </Alert>
       )}
 
+      <div
+        key={step}
+        className={cn(
+          "animate-in fade-in-0 duration-300 ease-out",
+          stepDirection === "forward" ? "slide-in-from-right-2" : "slide-in-from-left-2"
+        )}
+      >
       {step === 0 && (
         <Card>
           <CardHeader>
@@ -769,6 +780,7 @@ export function DocumentForm() {
           </CardContent>
         </Card>
       )}
+      </div>
 
       <div className="flex items-center justify-between gap-3">
         <Button type="button" variant="outline" onClick={goBack} disabled={step === 0 || pending}>

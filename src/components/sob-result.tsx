@@ -238,21 +238,41 @@ export function SobResult({
   const anyNotMet = results.some((r) => r.status === "not-met");
 
   const [viewStep, setViewStep] = useState(0);
+  const [direction, setDirection] = useState<"forward" | "backward">("forward");
   const maxStep = getMaxStep(!!policy, decision);
   const atGateAwaitingDecision = viewStep === 3 && decision === "pending" && !!policy;
 
+  function goBack() {
+    setDirection("backward");
+    setViewStep((s) => Math.max(0, s - 1));
+  }
+
+  function goNext() {
+    setDirection("forward");
+    setViewStep((s) => Math.min(maxStep, s + 1));
+  }
+
   function handleProceed() {
     onProceed();
+    setDirection("forward");
     setViewStep(4);
   }
 
   function handleDecline(reason: string) {
     onDecline(reason);
+    setDirection("forward");
     setViewStep(4);
   }
 
   return (
     <div className="space-y-6">
+      <div
+        key={viewStep}
+        className={cn(
+          "animate-in fade-in-0 duration-300 ease-out",
+          direction === "forward" ? "slide-in-from-right-2" : "slide-in-from-left-2"
+        )}
+      >
       {viewStep === 0 && (
         <Card>
           <CardHeader>
@@ -435,22 +455,14 @@ export function SobResult({
           </AlertDescription>
         </Alert>
       )}
+      </div>
 
       <div className="flex items-center justify-between gap-3">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setViewStep((s) => Math.max(0, s - 1))}
-          disabled={viewStep === 0}
-        >
+        <Button type="button" variant="outline" onClick={goBack} disabled={viewStep === 0}>
           <ArrowLeft /> Back
         </Button>
         {!atGateAwaitingDecision && (
-          <Button
-            type="button"
-            onClick={() => setViewStep((s) => Math.min(maxStep, s + 1))}
-            disabled={viewStep >= maxStep}
-          >
+          <Button type="button" onClick={goNext} disabled={viewStep >= maxStep}>
             Next <ArrowRight />
           </Button>
         )}
