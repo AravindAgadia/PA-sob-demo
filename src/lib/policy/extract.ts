@@ -157,7 +157,8 @@ export async function extractPolicyFromText(rawText: string): Promise<ExtractRes
   if (!apiKey) {
     return {
       ok: false,
-      error: "No OpenAI API key configured. Add OPENAI_API_KEY to .env.local and restart the dev server.",
+      error:
+        "No OpenAI API key configured. Add OPENAI_API_KEY to .env.local (and to Vercel's project Environment Variables for production), then restart or redeploy.",
     };
   }
 
