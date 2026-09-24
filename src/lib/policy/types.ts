@@ -1,5 +1,12 @@
 export type CriterionStatus = "confirmed" | "not-met" | "needs-info";
 
+/**
+ * Where a request sits relative to the Summary of Benefits decision gate:
+ * "pending" until the requesting office reviews the SOB screen and either
+ * proceeds to provider questions or declines and closes the case.
+ */
+export type CaseDecision = "pending" | "proceeded" | "declined";
+
 export interface IntakeData {
   patientName: string;
   patientDob: string;

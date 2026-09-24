@@ -4,8 +4,8 @@ import { useState, type ReactNode } from "react";
 import {
   Check,
   CheckCircle2,
-  ClipboardCheck,
   FileSearch,
+  ListChecks,
   type LucideIcon,
   ShieldCheck,
   Stethoscope,
@@ -17,7 +17,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -27,8 +26,11 @@ import { IconChip, type IconChipColor } from "@/components/icon-chip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { StatusBadge } from "@/components/status-badge";
+import { SobGate } from "@/components/sob-gate";
+import { CaseClosed } from "@/components/case-closed";
 import type { IntakeRunResult } from "@/app/actions";
 import type {
+  CaseDecision,
   CriterionOption,
   CriterionResult,
   FollowUpAnswers,
@@ -236,12 +238,22 @@ export function SobResult({
   results,
   answers,
   onAnswersChange,
+  decision,
+  onProceed,
+  onDecline,
+  declineReason,
+  closedAt,
   onReset,
 }: {
   run: IntakeRunResult;
   results: CriterionResult[];
   answers: FollowUpAnswers;
   onAnswersChange: (next: FollowUpAnswers) => void;
+  decision: CaseDecision;
+  onProceed: () => void;
+  onDecline: (reason: string) => void;
+  declineReason: string | undefined;
+  closedAt: string | null;
   onReset: () => void;
 }) {
   const { eligibility, npiLookup, policyMatch } = run;
@@ -339,7 +351,7 @@ export function SobResult({
           </Card>
         </TimelineStep>
 
-        <TimelineStep number={4} status="complete">
+        <TimelineStep number={4} status="complete" isLast={!policy}>
           <Card>
             <CardHeader>
               <CardIconTitle icon={Stethoscope} color="pink">
@@ -377,64 +389,84 @@ export function SobResult({
         </TimelineStep>
 
         {policy && (
-          <TimelineStep number={5} status={allResolved ? "complete" : "current"}>
-            <Card>
-              <CardHeader>
-                <CardIconTitle icon={ClipboardCheck} color="green">
-                  Summary of Benefits
-                </CardIconTitle>
-                <CardDescription>
-                  Does the member meet all of the following criteria? Each item below is
-                  surfaced with what the system knows &mdash; this is not an approval or
-                  denial decision.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="divide-y">
-                {results.map((result) => (
-                  <CriterionRow
-                    key={result.id}
-                    result={result}
-                    answers={answers}
-                    onAnswersChange={onAnswersChange}
-                  />
-                ))}
-              </CardContent>
-              {policy.notApplicable.length > 0 && (
-                <CardFooter className="flex flex-col items-start gap-2">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    Also checked against this policy:
-                  </p>
-                  <ul className="list-inside list-disc text-xs text-muted-foreground">
-                    {policy.notApplicable.map((note) => (
-                      <li key={note}>{note}</li>
-                    ))}
-                  </ul>
-                </CardFooter>
-              )}
-            </Card>
+          <TimelineStep number={5} status={decision === "pending" ? "current" : "complete"}>
+            <SobGate
+              policy={policy}
+              eligibility={eligibility}
+              results={results}
+              decision={decision}
+              onProceed={onProceed}
+              onDecline={onDecline}
+            />
           </TimelineStep>
         )}
 
-        <TimelineStep number={6} status={allResolved ? "complete" : "upcoming"} isLast>
-          {allResolved ? (
-            <Alert className="border-accent-green/30 bg-accent-green/10 *:[svg]:text-accent-green">
-              <CheckCircle2 />
-              <AlertTitle>Complete picture</AlertTitle>
-              <AlertDescription>
-                All {results.length} criteria have a status. This is <strong>not</strong> an
-                approval decision &mdash; it is a surfaced view of what {policy?.payer} requires
-                for {policy?.drug} under this plan, and what is known so far.{" "}
-                {anyNotMet
-                  ? "At least one criterion was not met based on the information captured."
-                  : "All checkable criteria are satisfied; the requesting office can decide whether to proceed with submission."}
-              </AlertDescription>
-            </Alert>
-          ) : (
-            <p className="pt-1 text-sm text-muted-foreground">
-              Complete picture &mdash; available once every criterion above has a status.
-            </p>
-          )}
-        </TimelineStep>
+        {policy && decision === "declined" && (
+          <TimelineStep number={6} status="complete" isLast>
+            <CaseClosed policy={policy} reason={declineReason} closedAt={closedAt ?? new Date().toISOString()} />
+          </TimelineStep>
+        )}
+
+        {policy && decision !== "declined" && (
+          <>
+            <TimelineStep
+              number={6}
+              status={
+                decision === "pending" ? "upcoming" : allResolved ? "complete" : "current"
+              }
+            >
+              {decision === "proceeded" ? (
+                <Card>
+                  <CardHeader>
+                    <CardIconTitle icon={ListChecks} color="green">
+                      Provider questions
+                    </CardIconTitle>
+                    <CardDescription>
+                      Unresolved criteria, kicked back to the requesting provider for a
+                      response.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="divide-y">
+                    {results.map((result) => (
+                      <CriterionRow
+                        key={result.id}
+                        result={result}
+                        answers={answers}
+                        onAnswersChange={onAnswersChange}
+                      />
+                    ))}
+                  </CardContent>
+                </Card>
+              ) : (
+                <p className="pt-1 text-sm text-muted-foreground">
+                  Provider questions &mdash; available once you decide whether to proceed past
+                  the Summary of Benefits.
+                </p>
+              )}
+            </TimelineStep>
+
+            <TimelineStep number={7} status={allResolved ? "complete" : "upcoming"} isLast>
+              {allResolved ? (
+                <Alert className="border-accent-green/30 bg-accent-green/10 *:[svg]:text-accent-green">
+                  <CheckCircle2 />
+                  <AlertTitle>Complete picture</AlertTitle>
+                  <AlertDescription>
+                    All {results.length} criteria have a status. This is <strong>not</strong> an
+                    approval decision &mdash; it is a surfaced view of what {policy?.payer}{" "}
+                    requires for {policy?.drug} under this plan, and what is known so far.{" "}
+                    {anyNotMet
+                      ? "At least one criterion was not met based on the information captured."
+                      : "All checkable criteria are satisfied; the requesting office can decide whether to proceed with submission."}
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <p className="pt-1 text-sm text-muted-foreground">
+                  Complete picture &mdash; available once every criterion above has a status.
+                </p>
+              )}
+            </TimelineStep>
+          </>
+        )}
       </div>
 
       <Separator />

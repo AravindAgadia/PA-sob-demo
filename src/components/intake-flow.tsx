@@ -7,7 +7,7 @@ import { SobResult } from "@/components/sob-result";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Stepper, type StepperStep } from "@/components/stepper";
 import { evaluatePolicy } from "@/lib/policy/evaluator";
-import type { FollowUpAnswers, IntakeData, PolicySummary } from "@/lib/policy/types";
+import type { CaseDecision, FollowUpAnswers, IntakeData, PolicySummary } from "@/lib/policy/types";
 
 const DEFAULT_INTAKE: IntakeData = {
   patientName: "Maria Alvarez",
@@ -30,6 +30,9 @@ export function IntakeFlow({
 }) {
   const [run, setRun] = useState<IntakeRunResult | null>(null);
   const [answers, setAnswers] = useState<FollowUpAnswers>({});
+  const [decision, setDecision] = useState<CaseDecision>("pending");
+  const [declineReason, setDeclineReason] = useState<string | undefined>();
+  const [closedAt, setClosedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,15 +56,29 @@ export function IntakeFlow({
     { label: "Prescriber check", status: !run ? "upcoming" : "complete" },
     {
       label: "Summary of Benefits",
-      status: !run ? "upcoming" : allResolved ? "complete" : "current",
+      status: !run ? "upcoming" : decision === "pending" ? "current" : "complete",
     },
-    { label: "Complete picture", status: run && allResolved ? "current" : "upcoming" },
   ];
+  if (decision === "declined") {
+    steps.push({ label: "Case closed", status: "complete" });
+  } else {
+    steps.push({
+      label: "Provider questions",
+      status: !run || decision === "pending" ? "upcoming" : allResolved ? "complete" : "current",
+    });
+    steps.push({
+      label: "Complete picture",
+      status: run && decision === "proceeded" && allResolved ? "current" : "upcoming",
+    });
+  }
 
   async function handleSubmit(intake: IntakeData) {
     setLoading(true);
     setError(null);
     setAnswers({});
+    setDecision("pending");
+    setDeclineReason(undefined);
+    setClosedAt(null);
     try {
       const result = await runIntake(intake);
       setRun(result);
@@ -76,9 +93,22 @@ export function IntakeFlow({
     }
   }
 
+  function handleProceed() {
+    setDecision("proceeded");
+  }
+
+  function handleDecline(reason: string) {
+    setDecision("declined");
+    setDeclineReason(reason || undefined);
+    setClosedAt(new Date().toISOString());
+  }
+
   function handleReset() {
     setRun(null);
     setAnswers({});
+    setDecision("pending");
+    setDeclineReason(undefined);
+    setClosedAt(null);
     setError(null);
   }
 
@@ -122,6 +152,11 @@ export function IntakeFlow({
           results={results}
           answers={answers}
           onAnswersChange={setAnswers}
+          decision={decision}
+          onProceed={handleProceed}
+          onDecline={handleDecline}
+          declineReason={declineReason}
+          closedAt={closedAt}
           onReset={handleReset}
         />
       )}
