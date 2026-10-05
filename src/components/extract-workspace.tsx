@@ -54,6 +54,7 @@ export function ExtractWorkspace({ initialDrafts }: { initialDrafts: ExtractedDr
   const [rows, setRows] = useState<FileRow[]>([]);
   const [isExtracting, startExtractTransition] = useTransition();
   const [extractError, setExtractError] = useState<string | null>(null);
+  const [extractWarning, setExtractWarning] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   // A server action blocks until the whole run finishes — there's no
@@ -102,6 +103,7 @@ export function ExtractWorkspace({ initialDrafts }: { initialDrafts: ExtractedDr
 
   function handleExtract() {
     setExtractError(null);
+    setExtractWarning(null);
     startExtractTransition(async () => {
       const formData = new FormData();
       for (const row of rows) {
@@ -118,6 +120,7 @@ export function ExtractWorkspace({ initialDrafts }: { initialDrafts: ExtractedDr
       setSourceDocs(result.sourceDocs);
       setPayer(result.draft.payer || "");
       setDrugLabel(result.draft.drugs[0]?.brand || result.draft.title || "");
+      if (result.warning) setExtractWarning(result.warning);
     });
   }
 
@@ -145,6 +148,7 @@ export function ExtractWorkspace({ initialDrafts }: { initialDrafts: ExtractedDr
       setSourceDocs(loaded.sourceText);
       setPayer(loaded.payer);
       setDrugLabel(loaded.drugLabel);
+      setExtractWarning(null);
     });
   }
 
@@ -251,7 +255,13 @@ export function ExtractWorkspace({ initialDrafts }: { initialDrafts: ExtractedDr
               logic) needs the raw-JSON field at the bottom.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {extractWarning && (
+              <Alert className="border-accent-orange/30 bg-accent-orange/10 *:[svg]:text-accent-orange">
+                <AlertTitle>Some conditions didn&apos;t extract</AlertTitle>
+                <AlertDescription>{extractWarning}</AlertDescription>
+              </Alert>
+            )}
             <ExtractionReview draft={draft} validation={validation} onChange={setDraft} />
           </CardContent>
           <CardFooter className="flex-col items-start gap-3">

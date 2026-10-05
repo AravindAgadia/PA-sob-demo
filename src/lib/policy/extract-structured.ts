@@ -92,6 +92,22 @@ interface PhaseAResult {
 
 // ---- shared OpenAI call ---------------------------------------------------
 
+/** One retry, after a short delay, for a transient failure (network blip,
+ *  a malformed response, a passing rate-limit hiccup) — without this, a
+ *  single bad call anywhere in a multi-minute, many-call run has no
+ *  chance to recover on its own. */
+async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    log.warn(`${label} failed once — retrying`, {
+      message: err instanceof Error ? err.message : String(err),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    return fn();
+  }
+}
+
 async function runStructuredChat(
   systemPrompt: string,
   userText: string,
@@ -205,7 +221,10 @@ RULES
 Return JSON matching the required schema.`;
 
 async function runPhaseA(fullText: string): Promise<PhaseAResult> {
-  return (await runStructuredChat(PHASE_A_SYSTEM_PROMPT, fullText, PHASE_A_SCHEMA)) as PhaseAResult;
+  return withRetry(
+    async () => (await runStructuredChat(PHASE_A_SYSTEM_PROMPT, fullText, PHASE_A_SCHEMA)) as PhaseAResult,
+    "Phase A"
+  );
 }
 
 // ---- Phase B: one condition at a time -------------------------------------
@@ -255,7 +274,10 @@ async function runPhaseB(
     otherDocsText,
   ].join("\n\n");
 
-  const raw = (await runStructuredChat(PHASE_B_SYSTEM_PROMPT, userText, PHASE_B_SCHEMA)) as ExtractedCondition;
+  const raw = await withRetry(
+    async () => (await runStructuredChat(PHASE_B_SYSTEM_PROMPT, userText, PHASE_B_SCHEMA)) as ExtractedCondition,
+    `Phase B condition ${entry.number}`
+  );
   // Structured Outputs occasionally emits the literal string "null" instead
   // of JSON null for an unset optional field — normalize it here so a
   // truthy-check in the renderer doesn't display the word "null".
@@ -318,15 +340,37 @@ async function runPipeline(prepared: PreparedDoc[]): Promise<ExtractResult> {
     };
   }
 
-  let conditions: ExtractedCondition[];
-  try {
-    conditions = await mapWithConcurrency(phaseA.conditionIndex, PHASE_B_CONCURRENCY, (entry) =>
-      runPhaseB(entry, governingDoc.text, phaseA.sharedSectionPages, otherDocsText)
-    );
-  } catch (err) {
-    log.error("Phase B extraction failed", { message: err instanceof Error ? err.message : String(err) });
-    return { ok: false, error: err instanceof Error ? err.message : "Couldn't extract one of the conditions." };
+  // A single condition failing (even after withRetry's one retry) must not
+  // throw away every other condition a multi-minute run already succeeded
+  // at — each outcome is caught individually so one bad call degrades to a
+  // smaller draft plus a warning, not a total loss.
+  const outcomes = await mapWithConcurrency(phaseA.conditionIndex, PHASE_B_CONCURRENCY, async (entry) => {
+    try {
+      const condition = await runPhaseB(entry, governingDoc.text, phaseA.sharedSectionPages, otherDocsText);
+      return { entry, condition, error: null as string | null };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      log.error(`Phase B condition ${entry.number} failed permanently`, { message });
+      return { entry, condition: null as ExtractedCondition | null, error: message };
+    }
+  });
+
+  const conditions = outcomes.flatMap((o) => (o.condition ? [o.condition] : []));
+  const failed = outcomes.filter((o) => o.error);
+
+  if (conditions.length === 0) {
+    return {
+      ok: false,
+      error: `All ${phaseA.conditionIndex.length} condition(s) failed to extract, even after retrying. Try again.`,
+    };
   }
+
+  const warning =
+    failed.length > 0
+      ? `${failed.length} of ${phaseA.conditionIndex.length} condition(s) failed to extract after retrying (${failed
+          .map((f) => `#${f.entry.number} ${f.entry.name}`)
+          .join(", ")}) — the rest of this draft is complete and usable; re-run to try the missing ones again.`
+      : undefined;
 
   const draft: ExtractedPolicy = {
     payer: phaseA.payer,
@@ -347,7 +391,7 @@ async function runPipeline(prepared: PreparedDoc[]): Promise<ExtractResult> {
   const sourceDocs = prepared.map((d) => ({ kind: d.kind, filename: d.filename, text: d.text }));
   const validation = validateExtraction(draft, sourceDocs);
 
-  return { ok: true, draft, validation, sourceDocs };
+  return { ok: true, draft, validation, sourceDocs, warning };
 }
 
 /**

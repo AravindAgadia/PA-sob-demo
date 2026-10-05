@@ -178,5 +178,15 @@ export interface ExtractSourceText {
 }
 
 export type ExtractResult =
-  | { ok: true; draft: ExtractedPolicy; validation: ValidationResult[]; sourceDocs: ExtractSourceText[] }
+  | {
+      ok: true;
+      draft: ExtractedPolicy;
+      validation: ValidationResult[];
+      sourceDocs: ExtractSourceText[];
+      /** Set when one or more conditions failed to extract even after a
+       *  retry — the draft still contains every condition that DID
+       *  succeed; this just surfaces which ones didn't so a full,
+       *  multi-minute run isn't silently incomplete. */
+      warning?: string;
+    }
   | { ok: false; error: string };
