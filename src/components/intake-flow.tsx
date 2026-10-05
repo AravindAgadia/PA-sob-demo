@@ -10,12 +10,14 @@ import { evaluatePolicy } from "@/lib/policy/evaluator";
 import type { CaseDecision, FollowUpAnswers, IntakeData, PolicySummary } from "@/lib/policy/types";
 
 const BLANK_INTAKE: IntakeData = {
-  patientName: "",
+  patientFirstName: "",
+  patientLastName: "",
   patientDob: "",
   insuranceId: "",
   payer: "",
   drug: "",
   diagnosis: "",
+  icd10Code: "",
   buyAndBill: false,
   orderingProviderNpi: "",
   dispensingLocation: "",

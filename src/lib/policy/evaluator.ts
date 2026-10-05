@@ -115,7 +115,7 @@ function evaluateCriterion(
       const labels = spec.options
         .filter((opt) => value.includes(opt.value))
         .map((opt) => opt.label);
-      return value.length > 0
+      return labels.length > 0
         ? {
             ...base,
             status: "confirmed",

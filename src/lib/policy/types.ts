@@ -8,12 +8,18 @@ export type CriterionStatus = "confirmed" | "not-met" | "needs-info";
 export type CaseDecision = "pending" | "proceeded" | "declined";
 
 export interface IntakeData {
-  patientName: string;
+  patientFirstName: string;
+  patientLastName: string;
   patientDob: string;
   insuranceId: string;
   payer: string;
   drug: string;
   diagnosis: string;
+  /** ICD-10-CM code, captured alongside the free-text diagnosis but not
+   *  currently consulted by any criterion — matches the source policy's own
+   *  gap (no ICD-10 code is listed on the seeded Tepezza policy either), so
+   *  there's nothing to validate it against yet. */
+  icd10Code: string;
   buyAndBill: boolean;
   orderingProviderNpi: string;
   dispensingLocation: string;
