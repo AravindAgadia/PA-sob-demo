@@ -29,14 +29,19 @@ const EXTRACTION_MODEL = "gpt-4o-mini";
  *  this caps the fan-out, independent of whatever per-click rate limit the
  *  calling server action applies. */
 const MAX_CONDITIONS_PER_RUN = 40;
-/** Measured ~190s end-to-end for Botox's 19 conditions at concurrency 4;
- *  raising this to 8 brought it to ~157s — a real but modest improvement
- *  (~18%), not the near-halving a naive wave-count argument would suggest,
- *  because the fixed cost ahead of Phase B (transcribing every uploaded
- *  PDF, then one full-document Phase A call) doesn't shrink with this
- *  value at all. Kept well under typical per-account rate limits for a
- *  single demo API key. */
-const PHASE_B_CONCURRENCY = 8;
+/** Measured ~190s end-to-end for Botox's 19 conditions at concurrency 4,
+ *  ~157s at concurrency 8 — a real but modest improvement (~18%), not the
+ *  near-halving a naive wave-count argument would suggest, because the
+ *  fixed cost ahead of Phase B (transcribing every uploaded PDF, then one
+ *  full-document Phase A call) doesn't shrink with this value at all.
+ *  Raised further to 12 (→ 2 waves instead of 3 for 19 conditions) now
+ *  that withRetry + per-condition failure isolation exist, which makes a
+ *  higher concurrency safer than before: an occasional rate-limit hiccup
+ *  from pushing this harder now degrades to one retried (or, worst case,
+ *  one missing-with-a-warning) condition instead of risking the whole
+ *  run. Timing is now logged per stage (see `timed()` below) so the next
+ *  change here can be based on real numbers instead of estimates. */
+const PHASE_B_CONCURRENCY = 12;
 
 const KIND_LABEL: Record<ExtractDocumentKind, string> = {
   "governing-policy": "governing policy",
@@ -91,6 +96,18 @@ interface PhaseAResult {
 }
 
 // ---- shared OpenAI call ---------------------------------------------------
+
+/** Logs how long a pipeline stage actually took — every speed change so
+ *  far has been tuned against guesses about where the time goes rather
+ *  than real numbers; this makes the next one evidence-based. */
+async function timed<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  const start = Date.now();
+  try {
+    return await fn();
+  } finally {
+    log.info(`extraction timing: ${label}`, { ms: Date.now() - start });
+  }
+}
 
 /** One retry, after a short delay, for a transient failure (network blip,
  *  a malformed response, a passing rate-limit hiccup) — without this, a
@@ -324,7 +341,7 @@ async function runPipeline(prepared: PreparedDoc[]): Promise<ExtractResult> {
 
   let phaseA: PhaseAResult;
   try {
-    phaseA = await runPhaseA(buildFullText(prepared));
+    phaseA = await timed("Phase A (header + condition index)", () => runPhaseA(buildFullText(prepared)));
   } catch (err) {
     log.error("Phase A extraction failed", { message: err instanceof Error ? err.message : String(err) });
     return { ok: false, error: err instanceof Error ? err.message : "Couldn't extract the policy header." };
@@ -344,16 +361,22 @@ async function runPipeline(prepared: PreparedDoc[]): Promise<ExtractResult> {
   // throw away every other condition a multi-minute run already succeeded
   // at — each outcome is caught individually so one bad call degrades to a
   // smaller draft plus a warning, not a total loss.
-  const outcomes = await mapWithConcurrency(phaseA.conditionIndex, PHASE_B_CONCURRENCY, async (entry) => {
-    try {
-      const condition = await runPhaseB(entry, governingDoc.text, phaseA.sharedSectionPages, otherDocsText);
-      return { entry, condition, error: null as string | null };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      log.error(`Phase B condition ${entry.number} failed permanently`, { message });
-      return { entry, condition: null as ExtractedCondition | null, error: message };
-    }
-  });
+  const outcomes = await timed(
+    `Phase B (${phaseA.conditionIndex.length} conditions, concurrency ${PHASE_B_CONCURRENCY})`,
+    () =>
+      mapWithConcurrency(phaseA.conditionIndex, PHASE_B_CONCURRENCY, async (entry) => {
+        try {
+          const condition = await timed(`Phase B condition ${entry.number}`, () =>
+            runPhaseB(entry, governingDoc.text, phaseA.sharedSectionPages, otherDocsText)
+          );
+          return { entry, condition, error: null as string | null };
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          log.error(`Phase B condition ${entry.number} failed permanently`, { message });
+          return { entry, condition: null as ExtractedCondition | null, error: message };
+        }
+      })
+  );
 
   const conditions = outcomes.flatMap((o) => (o.condition ? [o.condition] : []));
   const failed = outcomes.filter((o) => o.error);
@@ -411,12 +434,16 @@ export async function extractPolicyFromDocuments(docs: ExtractSourceDocument[]):
 
   let prepared: PreparedDoc[];
   try {
-    prepared = await Promise.all(
-      docs.map(async (d) => ({
-        kind: d.kind,
-        filename: d.filename,
-        text: await extractPageMarkedText(d.bytes, d.filename),
-      }))
+    prepared = await timed("transcription (all docs, parallel)", () =>
+      Promise.all(
+        docs.map((d) =>
+          timed(`transcription: ${d.filename}`, async () => ({
+            kind: d.kind,
+            filename: d.filename,
+            text: await extractPageMarkedText(d.bytes, d.filename),
+          }))
+        )
+      )
     );
   } catch (err) {
     log.error("PDF transcription failed", { message: err instanceof Error ? err.message : String(err) });
