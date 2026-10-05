@@ -233,7 +233,8 @@ RULES
    Every one of these 5 kinds gets exactly one entry in "rules", with no exceptions — if a kind genuinely has no stated text anywhere in the supplied documents, still include it with label "Unverified" and text explaining nothing settles it (this is itself useful information, e.g. "Not stated in policy; no general site-of-care policy was supplied"). Never simply omit a kind.
 9. "relatedDocuments": list EVERY document supplied to you (the governing policy itself, and every other file, e.g. a PA form or a general policy), one entry each. Set "used": true if anything in your header fields or rules actually drew on that document's content, false if it was supplied but you found nothing to use from it. Use each document's own title/number as "number" (e.g. the PA form's own title), and "type" as a short description (e.g. "PA form", "general policy").
 10. "unitConversionNote": if the policy states its OWN unit-conversion rule for approval-duration math (e.g. "1 month = 30 days" for counting how long a patient has been on therapy), quote it here verbatim. This is easy to miss because it's usually a single incidental sentence, not its own section — read carefully. null if no such rule is stated.
-11. Plain English, short lines.
+11. Page numbers always mean the document's own physical page order (the first page is page 1, the second is page 2, and so on) — never a page number printed in a header, footer, or table of contents if that differs from physical order.
+12. Plain English, short lines.
 
 Return JSON matching the required schema.`;
 
@@ -328,7 +329,10 @@ async function mapWithConcurrency<T, R>(
 
 // ---- pipeline --------------------------------------------------------------
 
-async function runPipeline(prepared: PreparedDoc[]): Promise<ExtractResult> {
+/** Everything after Phase A is settled — identical regardless of whether
+ *  Phase A ran sequentially off transcribed text (the paste-text path) or
+ *  in parallel off the raw PDFs (the upload path). */
+async function runPipelineCore(prepared: PreparedDoc[], phaseA: PhaseAResult): Promise<ExtractResult> {
   const governingDoc = prepared.find((d) => d.kind === "governing-policy");
   if (!governingDoc) {
     return { ok: false, error: "Tag at least one uploaded file as the governing policy." };
@@ -338,14 +342,6 @@ async function runPipeline(prepared: PreparedDoc[]): Promise<ExtractResult> {
   const otherDocsText = otherDocs.length
     ? otherDocs.map((d) => `=== DOCUMENT: ${d.filename} (${KIND_LABEL[d.kind]}) ===\n\n${d.text}`).join("\n\n")
     : "(No PA form or general policy supplied.)";
-
-  let phaseA: PhaseAResult;
-  try {
-    phaseA = await timed("Phase A (header + condition index)", () => runPhaseA(buildFullText(prepared)));
-  } catch (err) {
-    log.error("Phase A extraction failed", { message: err instanceof Error ? err.message : String(err) });
-    return { ok: false, error: err instanceof Error ? err.message : "Couldn't extract the policy header." };
-  }
 
   if (phaseA.conditionIndex.length === 0) {
     return { ok: false, error: "No numbered conditions were found in the governing policy." };
@@ -421,11 +417,24 @@ async function runPipeline(prepared: PreparedDoc[]): Promise<ExtractResult> {
  * Main entry point: one or more uploaded policy documents (governing policy
  * required; PA form / general policy / other optional) → a validated,
  * cited, nested policy draft. Each PDF is transcribed to page-marked text
- * first (pdf-text.ts), then extracted in two phases: Phase A reads
- * everything and returns header fields + a condition index; Phase B runs
- * once per condition (bounded concurrency), each call scoped to just that
- * condition's own text plus the shared sections and any PA-form/general-
- * policy text — not the whole governing policy resent per condition.
+ * first (pdf-text.ts), then Phase A reads that text and returns header
+ * fields + a condition index.
+ *
+ * TRIED, MEASURED, AND REVERTED: ran Phase A directly off the raw PDFs in
+ * parallel with transcription instead of waiting for it — real speed win
+ * (saved Phase A's ~20-35s entirely, confirmed by the timing logs
+ * overlapping as designed), but it introduced a reproducible correctness
+ * regression: reviewDate came back wrong (equal to effectiveDate, not the
+ * actual Revision Details table value) on both of two live Entyvio runs
+ * where the sequential text-based path had been reliably correct all
+ * session. Reading a multi-row table's structure from raw PDF vision
+ * appears meaningfully less reliable than reading it from clean
+ * transcribed text — not a one-off, confirmed reproducible. Trading
+ * silently-wrong dates for ~20s isn't an acceptable tradeoff, so this
+ * stays sequential. A future fix (e.g. a small supplementary text-based
+ * call just for the Revision Details fields) could make a parallel path
+ * safe to revisit, but that's a new design, not a reinstatement of what
+ * was tried here.
  */
 export async function extractPolicyFromDocuments(docs: ExtractSourceDocument[]): Promise<ExtractResult> {
   if (docs.length === 0) {
@@ -450,16 +459,34 @@ export async function extractPolicyFromDocuments(docs: ExtractSourceDocument[]):
     return { ok: false, error: err instanceof Error ? err.message : "Couldn't read one of the uploaded files." };
   }
 
-  return runPipeline(prepared);
+  let phaseA: PhaseAResult;
+  try {
+    phaseA = await timed("Phase A (header + condition index)", () => runPhaseA(buildFullText(prepared)));
+  } catch (err) {
+    log.error("Phase A extraction failed", { message: err instanceof Error ? err.message : String(err) });
+    return { ok: false, error: err instanceof Error ? err.message : "Couldn't extract the policy header." };
+  }
+
+  return runPipelineCore(prepared, phaseA);
 }
 
-/** Paste-text fallback — skips pdf-text.ts, still goes through the same
- *  two-phase prompts, treating the pasted text as the governing policy. */
+/** Paste-text fallback — skips pdf-text.ts, and Phase A runs on the pasted
+ *  text sequentially (there's no raw PDF to read in parallel with). */
 export async function extractPolicyFromText(rawText: string): Promise<ExtractResult> {
   const trimmed = rawText.trim();
   if (!trimmed) {
     return { ok: false, error: "Paste the policy document text above first." };
   }
   const text = /---\s*Page\s+\d+\s*---/i.test(trimmed) ? trimmed : `--- Page 1 ---\n\n${trimmed}`;
-  return runPipeline([{ kind: "governing-policy", filename: "pasted-text", text }]);
+  const prepared: PreparedDoc[] = [{ kind: "governing-policy", filename: "pasted-text", text }];
+
+  let phaseA: PhaseAResult;
+  try {
+    phaseA = await timed("Phase A (header + condition index)", () => runPhaseA(buildFullText(prepared)));
+  } catch (err) {
+    log.error("Phase A extraction failed", { message: err instanceof Error ? err.message : String(err) });
+    return { ok: false, error: err instanceof Error ? err.message : "Couldn't extract the policy header." };
+  }
+
+  return runPipelineCore(prepared, phaseA);
 }
