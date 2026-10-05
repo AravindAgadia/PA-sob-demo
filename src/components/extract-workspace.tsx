@@ -118,9 +118,38 @@ export function ExtractWorkspace({ initialDrafts }: { initialDrafts: ExtractedDr
       setDraft(result.draft);
       setValidation(result.validation);
       setSourceDocs(result.sourceDocs);
-      setPayer(result.draft.payer || "");
-      setDrugLabel(result.draft.drugs[0]?.brand || result.draft.title || "");
-      if (result.warning) setExtractWarning(result.warning);
+      const derivedPayer = result.draft.payer || "";
+      const derivedDrugLabel = result.draft.drugs[0]?.brand || result.draft.title || "";
+      setPayer(derivedPayer);
+      setDrugLabel(derivedDrugLabel);
+
+      if (result.warning) {
+        // Partial extraction — stay on the review screen so the warning
+        // (and which conditions are missing) can't be silently skipped
+        // past on the way to a summary that's quietly incomplete.
+        setExtractWarning(result.warning);
+        return;
+      }
+
+      // Clean, complete extraction — skip the manual fill-in-fields,
+      // Save draft, back-to-list, View steps and go straight to the
+      // Benefit Summary, auto-saving with the extracted payer/drug as
+      // sensible defaults. Falls back to the manual review+save UI
+      // (already rendered below) if the auto-save itself fails.
+      try {
+        const saved = await saveExtractionDraft({
+          payer: derivedPayer,
+          drugLabel: derivedDrugLabel,
+          data: result.draft,
+          validation: result.validation,
+          sourceText: result.sourceDocs,
+        });
+        router.push(`/documents/extract/${saved.id}/summary`);
+      } catch (err) {
+        setSaveError(
+          `Extracted successfully, but auto-save failed${err instanceof Error ? `: ${err.message}` : ""}. Use "Save draft" below.`
+        );
+      }
     });
   }
 
