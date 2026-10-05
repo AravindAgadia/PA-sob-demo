@@ -14,7 +14,13 @@ const TRANSCRIPTION_MODEL = "gpt-4o-mini";
  *  bottleneck). Short documents (a 3-page PA form) aren't worth the extra
  *  page-count round trip, so chunking only kicks in above this size. */
 const CHUNK_THRESHOLD_PAGES = 6;
-const CHUNK_SIZE_PAGES = 6;
+/** Measured on IP0637 (18 pages): one whole-document call ~124s; 6-page
+ *  chunks (3 parallel calls) ~50-54s — chunking helped a lot, but
+ *  transcription was still 62% of total pipeline time even after that
+ *  first cut. Narrowing further to 3-page chunks (6 parallel calls)
+ *  trades more fixed per-call overhead for less output per call — testing
+ *  whether that net wins before committing to it as the new default. */
+const CHUNK_SIZE_PAGES = 3;
 
 /** Framing this as an internal OCR/data-processing utility, in a system
  *  message rather than folding it into the user turn, measurably reduces
