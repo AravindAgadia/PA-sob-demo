@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FileText, Plus } from "lucide-react";
+import { FileText, Plus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DocumentList } from "@/components/document-list";
@@ -37,9 +37,14 @@ export default async function DocumentsPage({ searchParams }: PageProps<"/docume
             Request drug picker.
           </p>
         </div>
-        <Button nativeButton={false} render={<Link href="/documents/new" />}>
-          <Plus /> Add document
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" nativeButton={false} render={<Link href="/documents/extract" />}>
+            <Sparkles /> Extract from PDF
+          </Button>
+          <Button nativeButton={false} render={<Link href="/documents/new" />}>
+            <Plus /> Add document
+          </Button>
+        </div>
       </header>
 
       <DocumentSearch defaultQuery={query} />

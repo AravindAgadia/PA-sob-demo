@@ -64,6 +64,25 @@ const SCHEMA_SQL = `
     taxonomy_description TEXT,
     fetched_at TIMESTAMPTZ NOT NULL
   );
+
+  -- Drafts from the upgraded (nested-schema) extraction pipeline — separate
+  -- from "policies"/"criteria" above, which still back the live matching
+  -- engine and Document Library on today's flat schema. Keeping this table
+  -- apart means landing richer extraction output never risks the
+  -- currently-working app.
+  CREATE TABLE IF NOT EXISTS extracted_policy_drafts (
+    id TEXT PRIMARY KEY,
+    payer TEXT NOT NULL,
+    drug_label TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft',
+    data JSONB NOT NULL,
+    validation JSONB NOT NULL,
+    source_text JSONB NOT NULL DEFAULT '[]',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+  ALTER TABLE extracted_policy_drafts ADD COLUMN IF NOT EXISTS source_text JSONB NOT NULL DEFAULT '[]';
+
+  CREATE INDEX IF NOT EXISTS idx_extracted_drafts_created_at ON extracted_policy_drafts (created_at DESC);
 `;
 
 function createPool(): Pool {
