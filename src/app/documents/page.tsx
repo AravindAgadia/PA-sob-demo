@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DocumentList } from "@/components/document-list";
 import { DocumentSearch } from "@/components/document-search";
+import { ExtractedDraftList } from "@/components/extracted-draft-list";
 import { IconChip } from "@/components/icon-chip";
 import { PaginationControls } from "@/components/pagination-controls";
+import { listExtractionDrafts } from "./extract/actions";
 import { listPolicies } from "@/lib/policy/store";
 
 const PAGE_SIZE = 10;
@@ -19,7 +21,10 @@ export default async function DocumentsPage({ searchParams }: PageProps<"/docume
   const query = typeof params.q === "string" ? params.q : "";
   const page = Math.max(1, Number(params.page) || 1);
 
-  const { items: policies, total } = await listPolicies({ page, pageSize: PAGE_SIZE, query });
+  const [{ items: policies, total }, extractedDrafts] = await Promise.all([
+    listPolicies({ page, pageSize: PAGE_SIZE, query }),
+    listExtractionDrafts(),
+  ]);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
@@ -46,6 +51,8 @@ export default async function DocumentsPage({ searchParams }: PageProps<"/docume
           </Button>
         </div>
       </header>
+
+      <ExtractedDraftList drafts={extractedDrafts} />
 
       <DocumentSearch defaultQuery={query} />
 

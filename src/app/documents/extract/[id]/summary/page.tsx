@@ -8,8 +8,15 @@ import { buildSobViewModel } from "@/lib/policy/sob-view-model";
 
 export const dynamic = "force-dynamic";
 
-export default async function ExtractionSummaryPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ExtractionSummaryPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ print?: string }>;
+}) {
   const { id } = await params;
+  const { print } = await searchParams;
   const draft = await getExtractionDraft(id);
   if (!draft) notFound();
 
@@ -24,7 +31,7 @@ export default async function ExtractionSummaryPage({ params }: { params: Promis
         >
           <ArrowLeft className="size-3.5" /> Back to extraction
         </Link>
-        <PrintButton />
+        <PrintButton autoPrint={print === "1"} />
       </div>
       <div className="bg-white py-6 shadow-sm">
         <SobDocument model={model} />
