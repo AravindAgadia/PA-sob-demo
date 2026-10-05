@@ -29,7 +29,14 @@ const EXTRACTION_MODEL = "gpt-4o-mini";
  *  this caps the fan-out, independent of whatever per-click rate limit the
  *  calling server action applies. */
 const MAX_CONDITIONS_PER_RUN = 40;
-const PHASE_B_CONCURRENCY = 4;
+/** Measured ~190s end-to-end for Botox's 19 conditions at concurrency 4;
+ *  raising this to 8 brought it to ~157s — a real but modest improvement
+ *  (~18%), not the near-halving a naive wave-count argument would suggest,
+ *  because the fixed cost ahead of Phase B (transcribing every uploaded
+ *  PDF, then one full-document Phase A call) doesn't shrink with this
+ *  value at all. Kept well under typical per-account rate limits for a
+ *  single demo API key. */
+const PHASE_B_CONCURRENCY = 8;
 
 const KIND_LABEL: Record<ExtractDocumentKind, string> = {
   "governing-policy": "governing policy",

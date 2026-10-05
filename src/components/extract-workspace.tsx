@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FileText, Loader2, Plus, ScrollText, Sparkles, Trash2, X } from "lucide-react";
@@ -54,6 +54,22 @@ export function ExtractWorkspace({ initialDrafts }: { initialDrafts: ExtractedDr
   const [rows, setRows] = useState<FileRow[]>([]);
   const [isExtracting, startExtractTransition] = useTransition();
   const [extractError, setExtractError] = useState<string | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  // A server action blocks until the whole run finishes — there's no
+  // partial progress to report back mid-flight — so this ticking counter
+  // is the cheapest honest signal that the page hasn't frozen during what
+  // can genuinely be a multi-minute run (one call per condition, each a
+  // real OpenAI round trip).
+  useEffect(() => {
+    if (!isExtracting) {
+      setElapsedSeconds(0);
+      return;
+    }
+    const start = Date.now();
+    const id = setInterval(() => setElapsedSeconds(Math.floor((Date.now() - start) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [isExtracting]);
 
   const [draft, setDraft] = useState<ExtractedPolicy | null>(null);
   const [validation, setValidation] = useState<ValidationResult[]>([]);
@@ -214,8 +230,8 @@ export function ExtractWorkspace({ initialDrafts }: { initialDrafts: ExtractedDr
           <Button disabled={isExtracting || rows.length === 0} onClick={handleExtract}>
             {isExtracting ? (
               <>
-                <Loader2 className="animate-spin" /> Extracting&hellip; this can take a minute for a long
-                policy
+                <Loader2 className="animate-spin" /> Extracting&hellip; {elapsedSeconds}s elapsed &mdash; one
+                pass per condition, so a large policy can take a few minutes
               </>
             ) : (
               <>

@@ -5,6 +5,21 @@ import { ExtractWorkspace } from "@/components/extract-workspace";
 import { listExtractionDrafts } from "./actions";
 
 export const dynamic = "force-dynamic";
+/** A full extraction run (PDF transcription + a header pass + one pass per
+ *  condition) can genuinely take several minutes for a large policy —
+ *  this raises Vercel's function-duration limit for Server Actions
+ *  invoked from this page well above the platform default (10s), which
+ *  would otherwise kill a long run outright rather than just make it
+ *  feel slow. (A route-segment config value like this can't live in the
+ *  "use server" actions file itself — that directive only allows async
+ *  function exports, and silently strips every export, including
+ *  unrelated ones, if anything else is exported alongside them.) Caps
+ *  lower than requested depending on plan: Hobby hard-caps at 60s
+ *  regardless of this value, Pro defaults to 300s (up to 800s with Fluid
+ *  Compute) — if this app is on Hobby, a 19-condition policy like Botox
+ *  will still time out, since that plan ceiling isn't something code can
+ *  raise. */
+export const maxDuration = 300;
 
 export default async function ExtractPage() {
   const drafts = await listExtractionDrafts();
