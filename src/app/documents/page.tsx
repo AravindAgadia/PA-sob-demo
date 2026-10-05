@@ -1,31 +1,17 @@
 import Link from "next/link";
-import { FileText, Plus, Sparkles } from "lucide-react";
+import { FileText, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { DocumentList } from "@/components/document-list";
-import { DocumentSearch } from "@/components/document-search";
 import { ExtractedDraftList } from "@/components/extracted-draft-list";
 import { IconChip } from "@/components/icon-chip";
-import { PaginationControls } from "@/components/pagination-controls";
 import { listExtractionDrafts } from "./extract/actions";
-import { listPolicies } from "@/lib/policy/store";
 
-const PAGE_SIZE = 10;
-
-// Always reflects live catalog state from Postgres — never baked as a
+// Always reflects live draft state from Postgres — never baked as a
 // static snapshot at build/deploy time.
 export const dynamic = "force-dynamic";
 
-export default async function DocumentsPage({ searchParams }: PageProps<"/documents">) {
-  const params = await searchParams;
-  const query = typeof params.q === "string" ? params.q : "";
-  const page = Math.max(1, Number(params.page) || 1);
-
-  const [{ items: policies, total }, extractedDrafts] = await Promise.all([
-    listPolicies({ page, pageSize: PAGE_SIZE, query }),
-    listExtractionDrafts(),
-  ]);
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+export default async function DocumentsPage() {
+  const extractedDrafts = await listExtractionDrafts();
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
@@ -35,41 +21,29 @@ export default async function DocumentsPage({ searchParams }: PageProps<"/docume
             <IconChip icon={FileText} color="teal" />
             <p className="text-sm font-medium text-muted-foreground">Document Library</p>
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight">Ingested coverage policies</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Extracted policies</h1>
           <p className="text-sm text-muted-foreground">
-            {total.toLocaleString()} polic{total === 1 ? "y" : "ies"} ingested. Search is
-            full-text indexed, so it scales to a large catalog — the same index backs the New
-            Request drug picker.
+            Upload a payer coverage-policy PDF to get a cited, condition-by-condition draft —
+            each criterion carries the exact quote and page it came from, checked against the
+            source text.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" nativeButton={false} render={<Link href="/documents/extract" />}>
-            <Sparkles /> Extract from PDF
-          </Button>
-          <Button nativeButton={false} render={<Link href="/documents/new" />}>
-            <Plus /> Add document
-          </Button>
-        </div>
+        <Button variant="outline" nativeButton={false} render={<Link href="/documents/extract" />}>
+          <Sparkles /> Extract from PDF
+        </Button>
       </header>
 
-      <ExtractedDraftList drafts={extractedDrafts} />
-
-      <DocumentSearch defaultQuery={query} />
-
-      {policies.length === 0 ? (
+      {extractedDrafts.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-10 text-center text-sm text-muted-foreground">
             <span className="flex size-12 items-center justify-center rounded-full bg-gradient-to-br from-accent-teal/20 to-accent-blue/20">
               <FileText className="size-6 text-accent-teal" />
             </span>
-            {query ? `No policies match "${query}".` : "No policy documents yet. Add one to get started."}
+            No extracted policies yet — click &ldquo;Extract from PDF&rdquo; to get started.
           </CardContent>
         </Card>
       ) : (
-        <>
-          <DocumentList policies={policies} />
-          <PaginationControls page={page} totalPages={totalPages} query={query} />
-        </>
+        <ExtractedDraftList drafts={extractedDrafts} />
       )}
     </div>
   );
