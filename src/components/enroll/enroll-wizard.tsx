@@ -96,9 +96,6 @@ export function EnrollWizard() {
 
   const postSubmitSteps: StepperStep[] = [
     { label: "Submit", status: !run ? "current" : "complete", color: "orange" },
-    { label: "Eligibility", status: !run ? "upcoming" : "complete", color: "blue" },
-    { label: "Policy match", status: !run ? "upcoming" : "complete", color: "purple" },
-    { label: "Prescriber", status: !run ? "upcoming" : "complete", color: "pink" },
     {
       label: "Benefits",
       status: !run ? "upcoming" : decision === "pending" ? "current" : "complete",

@@ -7,6 +7,7 @@ import { FileText, Loader2, Plus, ScrollText, Sparkles, Trash2, X } from "lucide
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { BulkExtractUpload } from "@/components/bulk-extract-upload";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExtractionReview } from "@/components/extraction-review";
 import { IconChip } from "@/components/icon-chip";
@@ -316,6 +317,8 @@ export function ExtractWorkspace({ initialDrafts }: { initialDrafts: ExtractedDr
           </CardFooter>
         </Card>
       )}
+
+      <BulkExtractUpload />
 
       <Separator />
 
