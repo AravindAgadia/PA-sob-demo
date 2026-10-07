@@ -1,49 +1,59 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
-import { SobResult } from "@/components/sob-result";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Loader2, RotateCcw } from "lucide-react";
+import { saveDraftEnrollment, submitEnrollment } from "@/app/enroll/actions";
+import {
+  AlertDialog,
+  AlertDialogClose,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Stepper, type StepperStep } from "@/components/stepper";
-import { useIntakeRun } from "@/hooks/use-intake-run";
+import type { EnrollmentRecord } from "@/lib/enrollment-store";
 import {
   ENROLL_STEPS,
   createInitialEnrollment,
-  mapEnrollmentToIntake,
   type EnrollStepId,
   type EnrollmentData,
 } from "./types";
+import { DraftSavedScreen } from "./draft-saved-screen";
+import { EnrollmentAcceptedScreen } from "./enrollment-accepted-screen";
 import { StepBenefitSummary } from "./step-benefit-summary";
 import { StepPayerPatient, getPayerPatientIssues } from "./step-payer-patient";
 import { StepPrescriber, getPrescriberIssues } from "./step-prescriber";
 import { StepDrugDetails, getDrugDetailsIssues } from "./step-drug-details";
 import { StepServicingProvider, getServicingProviderIssues } from "./step-servicing-provider";
 
-export function EnrollWizard() {
-  const [data, setData] = useState<EnrollmentData>(createInitialEnrollment);
-  const [step, setStep] = useState<EnrollStepId>("payer-patient");
+export function EnrollWizard({
+  initialEnrollment,
+  onSubmitted,
+  onDraftSaved,
+}: {
+  initialEnrollment?: EnrollmentRecord;
+  onSubmitted: (caseNumber: string) => void;
+  onDraftSaved: () => void;
+}) {
+  const router = useRouter();
+  const [data, setData] = useState<EnrollmentData>(() => initialEnrollment?.data ?? createInitialEnrollment());
+  const [step, setStep] = useState<EnrollStepId>(() => initialEnrollment?.step ?? ENROLL_STEPS[0].id);
+  const [enrollmentId, setEnrollmentId] = useState<string | undefined>(initialEnrollment?.id);
+  const [draftNumber, setDraftNumber] = useState<string | undefined>(initialEnrollment?.draftNumber);
   const [attemptedNext, setAttemptedNext] = useState<Record<EnrollStepId, boolean>>(
     {} as Record<EnrollStepId, boolean>
   );
-
-  const {
-    run,
-    results,
-    answers,
-    setAnswers,
-    decision,
-    declineReason,
-    closedAt,
-    loading,
-    error,
-    allResolved,
-    handleSubmit,
-    handleProceed,
-    handleDecline,
-    handleReset,
-  } = useIntakeRun();
+  const [isSubmitting, startSubmit] = useTransition();
+  const [isSavingDraft, startSavingDraft] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [submittedCaseNumber, setSubmittedCaseNumber] = useState<string | null>(null);
+  const [savedDraftNumber, setSavedDraftNumber] = useState<string | null>(null);
 
   const currentIssues = useMemo(() => {
     switch (step) {
@@ -69,17 +79,46 @@ export function EnrollWizard() {
     color: "blue",
   }));
 
+  /** Fire-and-forget draft save on step advance — not on every keystroke.
+   *  Captures the returned id/draft number so later saves UPDATE the same
+   *  row instead of creating a new one, and returns them directly (rather
+   *  than relying on state) since a caller awaiting this needs the fresh
+   *  value immediately, before the state update has taken effect. */
+  async function persistDraft(targetStep: EnrollStepId): Promise<{ id: string; draftNumber: string }> {
+    const saved = await saveDraftEnrollment({ id: enrollmentId, data, step: targetStep });
+    setEnrollmentId(saved.id);
+    setDraftNumber(saved.draftNumber);
+    router.refresh();
+    return { id: saved.id, draftNumber: saved.draftNumber };
+  }
+
   function handleNext() {
     if (currentIssues.length > 0) {
       setAttemptedNext((prev) => ({ ...prev, [step]: true }));
       return;
     }
     if (isLastStep) {
-      handleSubmit(mapEnrollmentToIntake(data));
+      setError(null);
+      startSubmit(async () => {
+        try {
+          const { id } = await persistDraft(step);
+          const { caseNumber } = await submitEnrollment(id, data);
+          setSubmittedCaseNumber(caseNumber);
+        } catch (err) {
+          setError(
+            err instanceof Error && err.message
+              ? err.message
+              : "Couldn't submit this enrollment — the eligibility check, NPI lookup, or policy match failed. Try again."
+          );
+        }
+      });
       return;
     }
     const next = ENROLL_STEPS[stepIndex + 1];
-    if (next) setStep(next.id);
+    if (next) {
+      setStep(next.id);
+      void persistDraft(next.id);
+    }
   }
 
   function handleBack() {
@@ -87,68 +126,75 @@ export function EnrollWizard() {
     if (prev) setStep(prev.id);
   }
 
-  function handleFullReset() {
-    handleReset();
+  function handleSaveAsDraft() {
+    setError(null);
+    startSavingDraft(async () => {
+      try {
+        const { draftNumber: saved } = await persistDraft(step);
+        setSavedDraftNumber(saved);
+      } catch {
+        setError("Couldn't save this draft. Try again.");
+      }
+    });
+  }
+
+  function handleClearForm() {
     setData(createInitialEnrollment());
     setStep(ENROLL_STEPS[0].id);
+    setEnrollmentId(undefined);
+    setDraftNumber(undefined);
     setAttemptedNext({} as Record<EnrollStepId, boolean>);
+    setError(null);
   }
 
-  const postSubmitSteps: StepperStep[] = [
-    { label: "Submit", status: !run ? "current" : "complete", color: "orange" },
-    {
-      label: "Benefits",
-      status: !run ? "upcoming" : decision === "pending" ? "current" : "complete",
-      color: "green",
-    },
-  ];
-  if (decision === "declined") {
-    postSubmitSteps.push({ label: "Closed", status: "complete", color: "orange" });
-  } else {
-    postSubmitSteps.push({
-      label: "Questions",
-      status: !run || decision === "pending" ? "upcoming" : allResolved ? "complete" : "current",
-      color: "green",
-    });
-    postSubmitSteps.push({
-      label: "Complete",
-      status: run && decision === "proceeded" && allResolved ? "current" : "upcoming",
-      color: "green",
-    });
-  }
-
-  if (run) {
+  if (submittedCaseNumber) {
     return (
-      <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
-        <div className="mb-8 overflow-x-auto rounded-lg border bg-card px-4 py-3">
-          <Stepper steps={postSubmitSteps} />
-        </div>
-        <SobResult
-          run={run}
-          results={results}
-          answers={answers}
-          onAnswersChange={setAnswers}
-          decision={decision}
-          onProceed={handleProceed}
-          onDecline={handleDecline}
-          declineReason={declineReason}
-          closedAt={closedAt}
-          onReset={handleFullReset}
+      <div className="mx-auto max-w-4xl">
+        <EnrollmentAcceptedScreen
+          caseNumber={submittedCaseNumber}
+          onBack={() => onSubmitted(submittedCaseNumber)}
+          onEdit={() => setSubmittedCaseNumber(null)}
         />
-      </main>
+      </div>
+    );
+  }
+
+  if (savedDraftNumber) {
+    return (
+      <div className="mx-auto max-w-4xl">
+        <DraftSavedScreen draftNumber={savedDraftNumber} onBack={onDraftSaved} />
+      </div>
     );
   }
 
   const showErrors = !!attemptedNext[step];
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
-      <header className="mb-4 flex items-baseline justify-between gap-4">
-        <h1 className="text-xl font-semibold tracking-tight">New enrollment</h1>
-        <p className="hidden text-xs text-muted-foreground sm:block">
-          Submitting runs eligibility, policy match, and prescriber lookup.
-        </p>
-      </header>
+    <div className="mx-auto max-w-4xl">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <span className="font-mono text-xs text-muted-foreground">
+          {draftNumber ? draftNumber : "Not saved yet"}
+        </span>
+        <AlertDialog>
+          <AlertDialogTrigger render={<Button type="button" variant="ghost" size="sm" />}>
+            <RotateCcw /> Clear form
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogTitle>Clear this enrollment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Anything entered on this form will be lost. This can&apos;t be undone.
+            </AlertDialogDescription>
+            <AlertDialogFooter>
+              <AlertDialogClose render={<Button variant="outline" size="sm" />}>Cancel</AlertDialogClose>
+              <AlertDialogClose
+                render={<Button variant="destructive" size="sm" onClick={handleClearForm} />}
+              >
+                Clear form
+              </AlertDialogClose>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
 
       <div className="mb-4 overflow-x-auto rounded-lg border bg-card px-4 py-2.5">
         <Stepper steps={wizardSteps} />
@@ -206,26 +252,31 @@ export function EnrollWizard() {
               <AlertDescription>Fill in: {currentIssues.join(", ")}.</AlertDescription>
             </Alert>
           )}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               type="button"
               variant="outline"
               onClick={handleBack}
-              disabled={stepIndex === 0 || loading}
+              disabled={stepIndex === 0 || isSubmitting || isSavingDraft}
             >
               Back
             </Button>
-            <Button type="button" onClick={handleNext} disabled={loading}>
-              {isLastStep && loading && <Loader2 className="animate-spin" />}
-              {isLastStep
-                ? loading
-                  ? "Running eligibility, policy match, and NPI lookup…"
-                  : "Submit PA request"
-                : "Next"}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleSaveAsDraft}
+              disabled={isSubmitting || isSavingDraft}
+            >
+              {isSavingDraft && <Loader2 className="animate-spin" />}
+              Save as Draft
+            </Button>
+            <Button type="button" onClick={handleNext} disabled={isSubmitting || isSavingDraft}>
+              {isLastStep && isSubmitting && <Loader2 className="animate-spin" />}
+              {isLastStep ? (isSubmitting ? "Running eligibility, policy match, and NPI lookup…" : "Proceed to PA") : "Next"}
             </Button>
           </div>
         </CardFooter>
       </Card>
-    </main>
+    </div>
   );
 }

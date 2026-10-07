@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "cn";
 
 const NAV_ITEMS = [
-  { href: "/", label: "New enrollment" },
+  { href: "/", label: "Drafts" },
   { href: "/documents", label: "Document library" },
 ];
 

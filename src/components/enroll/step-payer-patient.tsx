@@ -1,7 +1,8 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -11,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PAYER_CATALOG } from "./payer-catalog";
 import { SectionHeading } from "./section-heading";
 import { US_STATES } from "./us-states";
 import type { EnrollmentPayerPatient } from "./types";
@@ -29,7 +31,12 @@ export const PAYER_PATIENT_REQUIRED: { key: keyof EnrollmentPayerPatient; label:
 ];
 
 export function getPayerPatientIssues(v: EnrollmentPayerPatient): string[] {
-  return PAYER_PATIENT_REQUIRED.filter((f) => !String(v[f.key]).trim()).map((f) => f.label);
+  const issues = PAYER_PATIENT_REQUIRED.filter((f) => !String(v[f.key]).trim()).map((f) => f.label);
+  if (!v.patientAddress.line1.trim()) issues.push("Street address");
+  if (!v.patientAddress.city.trim()) issues.push("City");
+  if (!v.patientAddress.state.trim()) issues.push("State");
+  if (!v.patientAddress.zip.trim()) issues.push("ZIP");
+  return issues;
 }
 
 function SearchInput(props: React.ComponentProps<typeof Input>) {
@@ -62,6 +69,9 @@ export function StepPayerPatient({
   function isEmpty(key: keyof EnrollmentPayerPatient) {
     return showErrors && !String(value[key]).trim();
   }
+  function isAddressEmpty(key: keyof EnrollmentPayerPatient["patientAddress"]) {
+    return showErrors && !value.patientAddress[key].trim();
+  }
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -69,13 +79,31 @@ export function StepPayerPatient({
         <Label htmlFor="payer">
           Payer (Insurance) <span className="text-destructive">*</span>
         </Label>
-        <SearchInput
-          id="payer"
-          value={value.payer}
-          onChange={(e) => update("payer", e.target.value)}
-          placeholder="e.g. Anthem Inc"
-          aria-invalid={isEmpty("payer")}
-        />
+        <div className="flex gap-2">
+          <Select value={value.payer || undefined} onValueChange={(v) => update("payer", v as string)}>
+            <SelectTrigger id="payer" className="w-full" aria-invalid={isEmpty("payer")}>
+              <SelectValue placeholder="Select payer" />
+            </SelectTrigger>
+            <SelectContent>
+              {PAYER_CATALOG.map((p) => (
+                <SelectItem key={p} value={p}>
+                  {p}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {value.payer && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Clear payer"
+              onClick={() => update("payer", "")}
+            >
+              <X />
+            </Button>
+          )}
+        </div>
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="urgency">
@@ -174,28 +202,40 @@ export function StepPayerPatient({
 
       <SectionHeading>Patient Address</SectionHeading>
       <div className="space-y-1.5 sm:col-span-full">
-        <Label htmlFor="patientAddressLine1">Street address</Label>
+        <Label htmlFor="patientAddressLine1">
+          Street address <span className="text-destructive">*</span>
+        </Label>
         <Input
           id="patientAddressLine1"
           value={value.patientAddress.line1}
           onChange={(e) => updateAddress("line1", e.target.value)}
+          aria-invalid={isAddressEmpty("line1")}
         />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="patientAddressCity">City</Label>
+        <Label htmlFor="patientAddressCity">
+          City <span className="text-destructive">*</span>
+        </Label>
         <Input
           id="patientAddressCity"
           value={value.patientAddress.city}
           onChange={(e) => updateAddress("city", e.target.value)}
+          aria-invalid={isAddressEmpty("city")}
         />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="patientAddressState">State</Label>
+        <Label htmlFor="patientAddressState">
+          State <span className="text-destructive">*</span>
+        </Label>
         <Select
           value={value.patientAddress.state || undefined}
           onValueChange={(v) => updateAddress("state", v as string)}
         >
-          <SelectTrigger id="patientAddressState" className="w-full">
+          <SelectTrigger
+            id="patientAddressState"
+            className="w-full"
+            aria-invalid={isAddressEmpty("state")}
+          >
             <SelectValue placeholder="State" />
           </SelectTrigger>
           <SelectContent>
@@ -208,11 +248,14 @@ export function StepPayerPatient({
         </Select>
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="patientAddressZip">ZIP</Label>
+        <Label htmlFor="patientAddressZip">
+          ZIP <span className="text-destructive">*</span>
+        </Label>
         <Input
           id="patientAddressZip"
           value={value.patientAddress.zip}
           onChange={(e) => updateAddress("zip", e.target.value)}
+          aria-invalid={isAddressEmpty("zip")}
         />
       </div>
     </div>

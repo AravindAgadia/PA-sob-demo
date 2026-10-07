@@ -22,18 +22,18 @@ const PHONE_TYPES = ["Mobile", "Office", "Home"];
 const FAX_TYPES = ["Office", "Mobile", "Home"];
 const SAMPLE_NPIS = ["1234567890", "1922334455", "1015049598"];
 
+/** Everything except NPI/Email is optional here on purpose — NPI's live
+ *  lookup auto-fills name/address well enough that forcing manual entry
+ *  of those fields too just blocks the step on data the lookup already
+ *  provided. Email stays required to match the production system. */
 export const PRESCRIBER_REQUIRED: { key: keyof EnrollmentPrescriber; label: string }[] = [
   { key: "npi", label: "NPI #" },
-  { key: "firstName", label: "First name" },
-  { key: "lastName", label: "Last name" },
-  { key: "taxId", label: "Tax ID" },
   { key: "email", label: "Email" },
   { key: "confirmEmail", label: "Confirm email" },
 ];
 
 export function getPrescriberIssues(v: EnrollmentPrescriber): string[] {
   const issues = PRESCRIBER_REQUIRED.filter((f) => !String(v[f.key]).trim()).map((f) => f.label);
-  if (!v.phone.trim() && !v.fax.trim()) issues.push("Phone # or Fax # (at least one)");
   if (v.email.trim() && v.confirmEmail.trim() && v.email.trim() !== v.confirmEmail.trim()) {
     issues.push("Confirm email must match email");
   }
@@ -154,25 +154,19 @@ export function StepPrescriber({
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="prescriberFirstName">
-          First name <span className="text-destructive">*</span>
-        </Label>
+        <Label htmlFor="prescriberFirstName">First name</Label>
         <Input
           id="prescriberFirstName"
           value={value.firstName}
           onChange={(e) => update("firstName", e.target.value)}
-          aria-invalid={isEmpty("firstName")}
         />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="prescriberLastName">
-          Last name <span className="text-destructive">*</span>
-        </Label>
+        <Label htmlFor="prescriberLastName">Last name</Label>
         <Input
           id="prescriberLastName"
           value={value.lastName}
           onChange={(e) => update("lastName", e.target.value)}
-          aria-invalid={isEmpty("lastName")}
         />
       </div>
       <div className="space-y-1.5">
@@ -203,15 +197,12 @@ export function StepPrescriber({
         />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="prescriberTaxId">
-          Tax ID / TIN <span className="text-destructive">*</span>
-        </Label>
+        <Label htmlFor="prescriberTaxId">Tax ID / TIN</Label>
         <Input
           id="prescriberTaxId"
           value={value.taxId}
           onChange={(e) => update("taxId", e.target.value)}
           placeholder="XX-XXXXXXX"
-          aria-invalid={isEmpty("taxId")}
         />
       </div>
       <div className="space-y-1.5">
@@ -227,9 +218,6 @@ export function StepPrescriber({
         />
       </div>
 
-      <p className="text-xs text-muted-foreground sm:col-span-full -mb-1.5">
-        At least one of Phone # or Fax # is required — neither is mandatory on its own.
-      </p>
       <div className="space-y-1.5">
         <Label htmlFor="prescriberConfirmEmail">
           Confirm email <span className="text-destructive">*</span>
@@ -291,7 +279,9 @@ export function StepPrescriber({
 
       <SectionHeading>Address</SectionHeading>
       <div className="space-y-1.5 sm:col-span-full">
-        <Label htmlFor="prescriberAddressLine1">Street address</Label>
+        <Label htmlFor="prescriberAddressLine1">
+          Street address
+        </Label>
         <Input
           id="prescriberAddressLine1"
           value={value.address.line1}

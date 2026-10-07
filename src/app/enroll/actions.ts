@@ -1,12 +1,66 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+import { runIntake } from "@/app/actions";
+import { createCaseForEnrollment } from "@/lib/case-store";
+import {
+  deleteEnrollment,
+  getEnrollment,
+  listEnrollments,
+  saveDraftEnrollment as saveDraftEnrollmentToStore,
+  type EnrollmentRecord,
+  type EnrollmentSummary,
+} from "@/lib/enrollment-store";
 import { lookupNpiForEnrollment } from "@/lib/npi/nppes";
 import { getDraft, listDrafts, type ExtractedDraft } from "@/lib/policy/extraction-store";
 import { assertRateLimit } from "@/lib/rate-limit";
+import { mapEnrollmentToIntake, type EnrollmentData, type EnrollStepId } from "@/components/enroll/types";
 
 export async function lookupPrescriberNpi(npi: string) {
   await assertRateLimit("enroll-npi-lookup", 20, 5 * 60 * 1000);
   return lookupNpiForEnrollment(npi);
+}
+
+export async function saveDraftEnrollment(input: {
+  id?: string;
+  data: EnrollmentData;
+  step: EnrollStepId;
+}): Promise<EnrollmentRecord> {
+  const saved = await saveDraftEnrollmentToStore(input);
+  revalidatePath("/");
+  return saved;
+}
+
+export async function listEnrollmentSummaries(): Promise<EnrollmentSummary[]> {
+  return listEnrollments();
+}
+
+export async function getEnrollmentById(id: string): Promise<EnrollmentRecord | undefined> {
+  return getEnrollment(id);
+}
+
+export async function deleteEnrollmentDraft(id: string): Promise<void> {
+  await deleteEnrollment(id);
+  revalidatePath("/");
+}
+
+/** Maps to IntakeData, runs the existing eligibility/policy-match/NPI
+ *  pipeline unchanged, and persists the result as a new case — the
+ *  enrollment wizard no longer renders that result inline. */
+export async function submitEnrollment(
+  enrollmentId: string,
+  data: EnrollmentData
+): Promise<{ caseNumber: string }> {
+  const intake = mapEnrollmentToIntake(data);
+  const run = await runIntake(intake);
+  const { caseNumber } = await createCaseForEnrollment(enrollmentId, {
+    intake: run.intake,
+    eligibility: run.eligibility,
+    npiLookup: run.npiLookup,
+    policyMatch: run.policyMatch,
+  });
+  revalidatePath("/");
+  return { caseNumber };
 }
 
 function normalize(value: string): string {

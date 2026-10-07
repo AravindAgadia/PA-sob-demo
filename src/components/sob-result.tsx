@@ -167,6 +167,7 @@ export function SobResult({
   declineReason,
   closedAt,
   onReset,
+  resetLabel = "Start a new request",
 }: {
   run: IntakeRunResult;
   results: CriterionResult[];
@@ -178,6 +179,7 @@ export function SobResult({
   declineReason: string | undefined;
   closedAt: string | null;
   onReset: () => void;
+  resetLabel?: string;
 }) {
   const { eligibility, policyMatch } = run;
   const policy = policyMatch.policy;
@@ -319,7 +321,7 @@ export function SobResult({
       <Separator />
 
       <Button variant="outline" onClick={onReset}>
-        Start a new request
+        {resetLabel}
       </Button>
     </div>
   );

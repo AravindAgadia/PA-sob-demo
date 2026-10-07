@@ -13,20 +13,35 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { DRUG_CATALOG, type DrugCatalogEntry } from "./drug-catalog";
+import { ICD10_CATALOG } from "./icd10-catalog";
 import { SectionHeading } from "./section-heading";
+import { TextAutocomplete } from "./text-autocomplete";
 import type { EnrollmentDrugDetails } from "./types";
 
-/** Diagnosis and ICD-10 aren't mandatory intake fields today (the matching
- *  engine doesn't check either), so they're kept optional here. Dispensing
- *  location IS consulted by the matching engine, so it's required — but
- *  only for Medical: a pharmacy-benefit (self-administered) drug has no
- *  site-of-care concept, so the field is hidden and not required for
- *  Pharmacy, matching why it's only ever surfaced in the matching engine
- *  via a Policy-sourced site-of-care rule for medical administration. */
+const SAMPLE_ICD10_CODES = ["G43.709", "K50.90", "M05.79"];
+const SAMPLE_ICD10_ENTRIES = SAMPLE_ICD10_CODES.map(
+  (code) => ICD10_CATALOG.find((entry) => entry.code === code)!
+);
+
+/** Placeholder set, not a real AnvayaRx option list — flag to confirm the
+ *  exact wording/options their drug-administration-location dropdown uses. */
+const SITE_OF_CARE_OPTIONS = [
+  "Physician's Office",
+  "Hospital Outpatient",
+  "Infusion Center",
+  "Home Infusion",
+  "Specialty Pharmacy (Patient Self-Administered)",
+  "Ambulatory Surgery Center",
+];
+
+/** Site of Care stays optional regardless of billing type — it's shown
+ *  for Medical and hidden for Pharmacy (a self-administered drug has no
+ *  site-of-care concept), but never blocks the step either way. */
 export const DRUG_DETAILS_REQUIRED: { key: keyof EnrollmentDrugDetails; label: string }[] = [
   { key: "drugDescription", label: "Drug description" },
   { key: "ndc", label: "NDC" },
   { key: "hcpcsCode", label: "HCPCS/CPT code" },
+  { key: "diagnosis", label: "Diagnosis" },
   { key: "routeOfAdministration", label: "Route of administration" },
   { key: "startDateOfService", label: "Start date of service" },
   { key: "daysSupply", label: "Days supply" },
@@ -35,11 +50,7 @@ export const DRUG_DETAILS_REQUIRED: { key: keyof EnrollmentDrugDetails; label: s
 ];
 
 export function getDrugDetailsIssues(v: EnrollmentDrugDetails): string[] {
-  const issues = DRUG_DETAILS_REQUIRED.filter((f) => !String(v[f.key]).trim()).map((f) => f.label);
-  if (v.billUnder === "Medical" && !v.dispensingLocation.trim()) {
-    issues.push("Dispensing location");
-  }
-  return issues;
+  return DRUG_DETAILS_REQUIRED.filter((f) => !String(v[f.key]).trim()).map((f) => f.label);
 }
 
 /** End Date of Service is derived, not user-entered — start date plus the
@@ -164,24 +175,6 @@ export function StepDrugDetails({
         />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="diagnosis">Diagnosis</Label>
-        <Input
-          id="diagnosis"
-          value={value.diagnosis}
-          onChange={(e) => update("diagnosis", e.target.value)}
-          placeholder="e.g. Chronic migraine"
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="icd10Code">ICD-10 code</Label>
-        <Input
-          id="icd10Code"
-          value={value.icd10Code}
-          onChange={(e) => update("icd10Code", e.target.value)}
-          placeholder="e.g. G43.709"
-        />
-      </div>
-      <div className="space-y-1.5">
         <Label htmlFor="ndc">
           NDC (Product Code) <span className="text-destructive">*</span>
         </Label>
@@ -193,7 +186,6 @@ export function StepDrugDetails({
           aria-invalid={isEmpty("ndc")}
         />
       </div>
-
       <div className="space-y-1.5">
         <Label htmlFor="hcpcsCode">
           HCPCS/CPT Code <span className="text-destructive">*</span>
@@ -218,10 +210,60 @@ export function StepDrugDetails({
           aria-invalid={isEmpty("routeOfAdministration")}
         />
       </div>
-      <p className="self-end pb-1.5 text-xs text-muted-foreground">
-        Diagnosis/ICD-10 aren&apos;t in the reference screen — added so this wizard can run
-        eligibility and policy matching.
-      </p>
+
+      <div className="grid grid-cols-1 gap-3 sm:col-span-full sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="diagnosis">
+            Diagnosis <span className="text-destructive">*</span>
+          </Label>
+          <TextAutocomplete
+            id="diagnosis"
+            value={value.diagnosis}
+            isInvalid={isEmpty("diagnosis")}
+            placeholder='Type a name ("migraine") or code ("G43")'
+            items={ICD10_CATALOG}
+            filter={(item, query) =>
+              item.description.toLowerCase().includes(query) || item.code.toLowerCase().includes(query)
+            }
+            renderItem={(item) => (
+              <>
+                <span className="font-medium">{item.description}</span>
+                <span className="text-xs text-muted-foreground">{item.code}</span>
+              </>
+            )}
+            onChangeText={(text) => update("diagnosis", text)}
+            onSelect={(item) => onChange({ ...value, diagnosis: item.description, icd10Code: item.code })}
+          />
+          <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            <span>Try:</span>
+            {SAMPLE_ICD10_ENTRIES.map((entry) => (
+              <button
+                key={entry.code}
+                type="button"
+                onClick={() =>
+                  onChange({ ...value, diagnosis: entry.description, icd10Code: entry.code })
+                }
+                className="rounded-full border border-input px-2 py-0.5 text-[11px] text-foreground transition-colors hover:bg-muted"
+              >
+                {entry.description}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="icd10Code">ICD-10 code</Label>
+          <Input
+            id="icd10Code"
+            value={value.icd10Code}
+            onChange={(e) => update("icd10Code", e.target.value)}
+            placeholder="e.g. G43.709"
+          />
+          <p className="text-xs text-muted-foreground">
+            Not shown in the reference screen — added so this wizard can run eligibility and policy
+            matching.
+          </p>
+        </div>
+      </div>
 
       <SectionHeading>Directions</SectionHeading>
       <div className="space-y-1.5 sm:col-span-full">
@@ -249,6 +291,7 @@ export function StepDrugDetails({
             onChange={(e) => update("startDateOfService", e.target.value)}
             aria-invalid={isEmpty("startDateOfService")}
           />
+          <p className="text-xs text-muted-foreground">Defaults to today — change if needed.</p>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="endDateOfService">End Date</Label>
@@ -262,7 +305,7 @@ export function StepDrugDetails({
             id="daysSupply"
             value={value.daysSupply}
             onChange={(e) => update("daysSupply", e.target.value)}
-            placeholder="90"
+            placeholder="e.g. 90"
             aria-invalid={isEmpty("daysSupply")}
           />
         </div>
@@ -274,7 +317,7 @@ export function StepDrugDetails({
             id="quantity"
             value={value.quantity}
             onChange={(e) => update("quantity", e.target.value)}
-            placeholder="1"
+            placeholder="e.g. 1"
             aria-invalid={isEmpty("quantity")}
           />
         </div>
@@ -297,15 +340,22 @@ export function StepDrugDetails({
         </div>
         {isMedical && (
           <div className="space-y-1.5">
-            <Label htmlFor="dispensingLocation">
-              Dispensing Location / Site of Care <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="dispensingLocation"
-              value={value.dispensingLocation}
-              onChange={(e) => update("dispensingLocation", e.target.value)}
-              aria-invalid={isEmpty("dispensingLocation")}
-            />
+            <Label htmlFor="dispensingLocation">Site of Care</Label>
+            <Select
+              value={value.dispensingLocation || undefined}
+              onValueChange={(v) => update("dispensingLocation", v as string)}
+            >
+              <SelectTrigger id="dispensingLocation" className="w-full">
+                <SelectValue placeholder="Select site of care" />
+              </SelectTrigger>
+              <SelectContent>
+                {SITE_OF_CARE_OPTIONS.map((o) => (
+                  <SelectItem key={o} value={o}>
+                    {o}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
       </div>

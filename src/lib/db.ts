@@ -83,6 +83,48 @@ const SCHEMA_SQL = `
   ALTER TABLE extracted_policy_drafts ADD COLUMN IF NOT EXISTS source_text JSONB NOT NULL DEFAULT '[]';
 
   CREATE INDEX IF NOT EXISTS idx_extracted_drafts_created_at ON extracted_policy_drafts (created_at DESC);
+
+  -- Persisted enrollment-wizard sessions (draft or submitted) and the
+  -- cases created from a submitted one — the enrollment wizard was
+  -- originally stateless; this is the pivot to real save/resume and a
+  -- lookup-able case history.
+  CREATE SEQUENCE IF NOT EXISTS draft_number_seq START 10000;
+
+  CREATE TABLE IF NOT EXISTS enrollments (
+    id TEXT PRIMARY KEY,
+    draft_number TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'draft',
+    step TEXT NOT NULL DEFAULT 'payer-patient',
+    data JSONB NOT NULL,
+    payer TEXT NOT NULL DEFAULT '',
+    patient_name TEXT NOT NULL DEFAULT '',
+    drug_label TEXT NOT NULL DEFAULT '',
+    case_id TEXT,
+    case_number TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+  ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS draft_number TEXT NOT NULL DEFAULT '';
+
+  CREATE INDEX IF NOT EXISTS idx_enrollments_status_updated ON enrollments (status, updated_at DESC);
+
+  CREATE SEQUENCE IF NOT EXISTS case_number_seq START 10000;
+
+  CREATE TABLE IF NOT EXISTS cases (
+    id TEXT PRIMARY KEY,
+    case_number TEXT NOT NULL UNIQUE,
+    enrollment_id TEXT NOT NULL REFERENCES enrollments (id) ON DELETE CASCADE,
+    run_data JSONB NOT NULL,
+    answers JSONB NOT NULL DEFAULT '{}',
+    decision TEXT NOT NULL DEFAULT 'pending',
+    decline_reason TEXT,
+    closed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_cases_enrollment ON cases (enrollment_id);
+  CREATE INDEX IF NOT EXISTS idx_cases_created_at ON cases (created_at DESC);
 `;
 
 function createPool(): Pool {

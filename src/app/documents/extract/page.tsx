@@ -40,9 +40,7 @@ export default async function ExtractPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Extract a policy into a structured draft</h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
           Turns a payer&apos;s coverage-policy PDF into a cited, condition-by-condition draft — each
-          criterion carries the exact quote and page it came from, checked against the source text. This
-          is a separate, newer pipeline from the Document Library&apos;s manual &ldquo;Add
-          document&rdquo; form; saved drafts here aren&apos;t yet wired into live request matching.
+          criterion carries the exact quote and page it came from, checked against the source text.
         </p>
       </header>
       <ExtractWorkspace initialDrafts={drafts} />
