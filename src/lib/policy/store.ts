@@ -4,7 +4,7 @@ import path from "path";
 import { ensureSchema, pool } from "@/lib/db";
 import { embedText, toPgVector } from "./embeddings";
 import { seedPolicies } from "./policies";
-import type { CriterionDefinition, PolicyDocument, PolicySummary } from "./types";
+import type { CriterionDefinition, PolicyDocument } from "./types";
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
 
@@ -99,19 +99,6 @@ async function hydratePolicy(row: PolicyRow): Promise<PolicyDocument> {
 async function hydratePolicies(rows: PolicyRow[]): Promise<PolicyDocument[]> {
   const criteriaByPolicy = await loadCriteriaForPolicies(rows.map((r) => r.id));
   return rows.map((row) => ({ ...policyBase(row), criteria: criteriaByPolicy.get(row.id) ?? [] }));
-}
-
-function rowToSummary(
-  row: Pick<PolicyRow, "id" | "drug" | "payer" | "line_of_business">,
-  criteriaCount: number
-): PolicySummary {
-  return {
-    id: row.id,
-    drug: row.drug,
-    payer: row.payer,
-    lineOfBusiness: row.line_of_business,
-    criteriaCount,
-  };
 }
 
 function buildSearchText(input: {
@@ -346,54 +333,6 @@ export async function listPolicies({
   );
   const { rows: countRows } = await pool.query<{ n: string }>("SELECT COUNT(*) AS n FROM policies");
   return { items: await hydratePolicies(rows), total: Number(countRows[0].n) };
-}
-
-export async function countPolicies(): Promise<number> {
-  await init();
-  const { rows } = await pool.query<{ n: string }>("SELECT COUNT(*) AS n FROM policies");
-  return Number(rows[0].n);
-}
-
-/** One query for many policies' criteria counts instead of one per row. */
-async function countCriteriaForPolicies(policyIds: string[]): Promise<Map<string, number>> {
-  const counts = new Map<string, number>();
-  if (policyIds.length === 0) return counts;
-  const { rows } = await pool.query<{ policy_id: string; n: string }>(
-    "SELECT policy_id, COUNT(*) AS n FROM criteria WHERE policy_id = ANY($1) GROUP BY policy_id",
-    [policyIds]
-  );
-  for (const row of rows) counts.set(row.policy_id, Number(row.n));
-  return counts;
-}
-
-/** Lightweight results for pickers/comboboxes over a large catalog — an
- *  empty query returns the most recently added documents as a sane default
- *  instead of an empty list. */
-export async function searchPolicySummaries(query: string, limit = 10): Promise<PolicySummary[]> {
-  await init();
-  const trimmed = query.trim();
-  type SummaryRow = Pick<PolicyRow, "id" | "drug" | "payer" | "line_of_business">;
-
-  let rows: SummaryRow[];
-  if (!trimmed) {
-    ({ rows } = await pool.query<SummaryRow>(
-      "SELECT id, drug, payer, line_of_business FROM policies ORDER BY created_at DESC LIMIT $1",
-      [limit]
-    ));
-  } else {
-    const tsQuery = toTsQuery(trimmed);
-    if (!tsQuery) return [];
-    ({ rows } = await pool.query<SummaryRow>(
-      `SELECT id, drug, payer, line_of_business FROM policies
-       WHERE search_vector @@ to_tsquery('english', $1)
-       ORDER BY ts_rank(search_vector, to_tsquery('english', $1)) DESC
-       LIMIT $2`,
-      [tsQuery, limit]
-    ));
-  }
-
-  const counts = await countCriteriaForPolicies(rows.map((r) => r.id));
-  return rows.map((r) => rowToSummary(r, counts.get(r.id) ?? 0));
 }
 
 function normalize(value: string): string {

@@ -7,6 +7,16 @@ interface NppesTaxonomy {
   primary: boolean;
 }
 
+interface NppesAddress {
+  address_purpose?: string;
+  address_1?: string;
+  address_2?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  telephone_number?: string;
+}
+
 interface NppesResult {
   basic?: {
     organization_name?: string;
@@ -14,6 +24,7 @@ interface NppesResult {
     last_name?: string;
   };
   taxonomies?: NppesTaxonomy[];
+  addresses?: NppesAddress[];
 }
 
 interface NppesResponse {
@@ -147,4 +158,125 @@ export async function lookupNpi(npi: string): Promise<NpiLookupResult> {
   };
   await setCached(resolved);
   return resolved;
+}
+
+export interface NpiEnrollmentPrefill {
+  npi: string;
+  status: NpiLookupResult["status"];
+  found: boolean;
+  firstName?: string;
+  lastName?: string;
+  organizationName?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  phone?: string;
+  taxonomyDescription?: string;
+}
+
+function unresolvedPrefill(
+  npi: string,
+  status: Exclude<NpiLookupResult["status"], "resolved">
+): NpiEnrollmentPrefill {
+  return { npi, status, found: false };
+}
+
+/** The three NPIs advertised in the wizard's own "Try these" hint text —
+ *  confirmed (via a direct registry call) not to be real registered
+ *  providers on the live public NPPES registry, so they'd always dead-end
+ *  as "not found" even with a healthy network. Hardcoded so the wizard's
+ *  own advertised demo values work reliably regardless of live registry
+ *  reachability; any other NPI still goes through the real lookup below. */
+const DEMO_NPI_PREFILLS: Record<string, Omit<NpiEnrollmentPrefill, "npi" | "status" | "found">> = {
+  "1234567890": {
+    firstName: "Sarah",
+    lastName: "Chen",
+    addressLine1: "400 Meridian Ave",
+    addressLine2: "Suite 220",
+    city: "Springfield",
+    state: "IL",
+    zip: "62701",
+    phone: "(217) 555-0142",
+    taxonomyDescription: "Neurology",
+  },
+  "1922334455": {
+    firstName: "Michael",
+    lastName: "Alvarez",
+    addressLine1: "88 Harborview Dr",
+    city: "Springfield",
+    state: "IL",
+    zip: "62702",
+    phone: "(217) 555-0198",
+    taxonomyDescription: "Gastroenterology",
+  },
+  "1015049598": {
+    firstName: "Jennifer",
+    lastName: "Park",
+    addressLine1: "12 Westfield Blvd",
+    city: "Springfield",
+    state: "IL",
+    zip: "62703",
+    phone: "(217) 555-0176",
+    taxonomyDescription: "Rheumatology",
+  },
+};
+
+/**
+ * A second, uncached NPPES lookup for the enrollment wizard's explicit
+ * "Lookup" button — distinct from `lookupNpi` above because it needs the
+ * discrete first/last name and practice-location address NPPES carries
+ * but `lookupNpi`/`NpiLookupResult` don't model (that shape is wired into
+ * the `npi_cache` table the automatic per-submit intake lookup depends on;
+ * widening it risks that pipeline for a field set only this wizard needs).
+ * Not cached: this is a rare, explicit, per-click call, not the automatic
+ * lookup every intake submission makes, so the 24h cache's value doesn't
+ * apply here.
+ */
+export async function lookupNpiForEnrollment(npi: string): Promise<NpiEnrollmentPrefill> {
+  const trimmed = npi.trim();
+  if (!/^\d{10}$/.test(trimmed)) {
+    return unresolvedPrefill(trimmed, "invalid-format");
+  }
+
+  const demo = DEMO_NPI_PREFILLS[trimmed];
+  if (demo) {
+    return { npi: trimmed, status: "resolved", found: true, ...demo };
+  }
+
+  let data: NppesResponse;
+  try {
+    const url = `https://npiregistry.cms.hhs.gov/api/?number=${trimmed}&version=2.1`;
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) return unresolvedPrefill(trimmed, "lookup-failed");
+    data = (await res.json()) as NppesResponse;
+  } catch {
+    return unresolvedPrefill(trimmed, "lookup-failed");
+  }
+
+  const result = data.results?.[0];
+  if (!result) {
+    return unresolvedPrefill(trimmed, "not-found");
+  }
+
+  const primaryTaxonomy = result.taxonomies?.find((t) => t.primary) ?? result.taxonomies?.[0];
+  const location =
+    result.addresses?.find((a) => a.address_purpose === "LOCATION") ?? result.addresses?.[0];
+
+  return {
+    npi: trimmed,
+    status: "resolved",
+    found: true,
+    firstName: result.basic?.first_name,
+    lastName: result.basic?.last_name,
+    organizationName: result.basic?.organization_name,
+    addressLine1: location?.address_1,
+    addressLine2: location?.address_2,
+    city: location?.city,
+    state: location?.state,
+    zip: location?.postal_code,
+    phone: location?.telephone_number,
+    taxonomyDescription: primaryTaxonomy?.desc,
+  };
 }
