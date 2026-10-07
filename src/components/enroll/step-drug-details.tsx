@@ -149,8 +149,8 @@ export function StepDrugDetails({
   );
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      <div className="space-y-1.5 sm:col-span-2">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="space-y-1.5 sm:col-span-full">
         <Label htmlFor="drugDescription">
           Drug Description <span className="text-destructive">*</span>
         </Label>
@@ -180,12 +180,7 @@ export function StepDrugDetails({
           onChange={(e) => update("icd10Code", e.target.value)}
           placeholder="e.g. G43.709"
         />
-        <p className="text-xs text-muted-foreground">
-          Not shown in the reference screen — added so this wizard can run eligibility and policy
-          matching like today&apos;s intake form.
-        </p>
       </div>
-
       <div className="space-y-1.5">
         <Label htmlFor="ndc">
           NDC (Product Code) <span className="text-destructive">*</span>
@@ -198,6 +193,7 @@ export function StepDrugDetails({
           aria-invalid={isEmpty("ndc")}
         />
       </div>
+
       <div className="space-y-1.5">
         <Label htmlFor="hcpcsCode">
           HCPCS/CPT Code <span className="text-destructive">*</span>
@@ -210,7 +206,7 @@ export function StepDrugDetails({
           aria-invalid={isEmpty("hcpcsCode")}
         />
       </div>
-      <div className="space-y-1.5 sm:col-span-2">
+      <div className="space-y-1.5">
         <Label htmlFor="routeOfAdministration">
           Route of Administration <span className="text-destructive">*</span>
         </Label>
@@ -222,14 +218,18 @@ export function StepDrugDetails({
           aria-invalid={isEmpty("routeOfAdministration")}
         />
       </div>
+      <p className="self-end pb-1.5 text-xs text-muted-foreground">
+        Diagnosis/ICD-10 aren&apos;t in the reference screen — added so this wizard can run
+        eligibility and policy matching.
+      </p>
 
       <SectionHeading>Directions</SectionHeading>
-      <div className="space-y-1.5 sm:col-span-2">
+      <div className="space-y-1.5 sm:col-span-full">
         <Textarea
           value={value.directions}
           onChange={(e) => update("directions", e.target.value)}
           placeholder="Inject 100 units intramuscularly once every 12 weeks"
-          rows={3}
+          rows={2}
         />
         <p className="text-xs text-muted-foreground">
           Free text — not yet connected to a data feed for FDB SIG codes/directions.
@@ -237,7 +237,7 @@ export function StepDrugDetails({
       </div>
 
       <SectionHeading>Supply &amp; Billing</SectionHeading>
-      <div className="grid grid-cols-2 gap-4 sm:col-span-2 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:col-span-full sm:grid-cols-4">
         <div className="space-y-1.5">
           <Label htmlFor="startDateOfService">
             Start Date <span className="text-destructive">*</span>
@@ -280,7 +280,7 @@ export function StepDrugDetails({
         </div>
       </div>
 
-      <div className={`grid grid-cols-1 gap-4 sm:col-span-2 ${isMedical ? "sm:grid-cols-2" : ""}`}>
+      <div className={`grid grid-cols-1 gap-3 sm:col-span-full ${isMedical ? "sm:grid-cols-2" : ""}`}>
         <div className="space-y-1.5">
           <Label htmlFor="billUnder">
             Bill This Drug Under <span className="text-destructive">*</span>

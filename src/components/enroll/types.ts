@@ -167,11 +167,17 @@ export function mapEnrollmentToIntake(data: EnrollmentData): IntakeData {
   };
 }
 
-export type EnrollStepId = "payer-patient" | "prescriber" | "drug" | "servicing-provider";
+export type EnrollStepId =
+  | "payer-patient"
+  | "prescriber"
+  | "drug"
+  | "servicing-provider"
+  | "benefit-summary";
 
 export const ENROLL_STEPS: { id: EnrollStepId; label: string }[] = [
   { id: "payer-patient", label: "Payer & Patient" },
   { id: "prescriber", label: "Prescriber" },
   { id: "drug", label: "Drug Details" },
   { id: "servicing-provider", label: "Servicing Provider" },
+  { id: "benefit-summary", label: "Benefit Summary" },
 ];

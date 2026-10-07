@@ -112,8 +112,8 @@ export function StepPrescriber({
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      <div className="space-y-1.5 sm:col-span-2">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="space-y-1.5 sm:col-span-full">
         <Label htmlFor="prescriberNpi">
           NPI # <span className="text-destructive">*</span>
         </Label>
@@ -193,6 +193,7 @@ export function StepPrescriber({
           </SelectContent>
         </Select>
       </div>
+
       <div className="space-y-1.5">
         <Label htmlFor="prescriberLicenseNumber">License Number</Label>
         <Input
@@ -213,51 +214,6 @@ export function StepPrescriber({
           aria-invalid={isEmpty("taxId")}
         />
       </div>
-
-      <p className="text-xs text-muted-foreground sm:col-span-2">
-        At least one of Phone # or Fax # is required — neither is mandatory on its own.
-      </p>
-      <div className="flex gap-2 sm:col-span-2">
-        <Select value={value.phoneType} onValueChange={(v) => update("phoneType", v as string)}>
-          <SelectTrigger className="w-28 shrink-0">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {PHONE_TYPES.map((t) => (
-              <SelectItem key={t} value={t}>
-                {t}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Input
-          value={value.phone}
-          onChange={(e) => update("phone", e.target.value)}
-          placeholder="(555) 431-9020"
-          className="flex-1"
-        />
-      </div>
-      <div className="flex gap-2 sm:col-span-2">
-        <Select value={value.faxType} onValueChange={(v) => update("faxType", v as string)}>
-          <SelectTrigger className="w-28 shrink-0">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {FAX_TYPES.map((t) => (
-              <SelectItem key={t} value={t}>
-                {t}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Input
-          value={value.fax}
-          onChange={(e) => update("fax", e.target.value)}
-          placeholder="(555) 431-9020"
-          className="flex-1"
-        />
-      </div>
-
       <div className="space-y-1.5">
         <Label htmlFor="prescriberEmail">
           Email <span className="text-destructive">*</span>
@@ -270,6 +226,10 @@ export function StepPrescriber({
           aria-invalid={isEmpty("email")}
         />
       </div>
+
+      <p className="text-xs text-muted-foreground sm:col-span-full -mb-1.5">
+        At least one of Phone # or Fax # is required — neither is mandatory on its own.
+      </p>
       <div className="space-y-1.5">
         <Label htmlFor="prescriberConfirmEmail">
           Confirm email <span className="text-destructive">*</span>
@@ -282,9 +242,55 @@ export function StepPrescriber({
           aria-invalid={isEmpty("confirmEmail")}
         />
       </div>
+      <div className="space-y-1.5">
+        <Label>Phone #</Label>
+        <div className="flex gap-2">
+          <Select value={value.phoneType} onValueChange={(v) => update("phoneType", v as string)}>
+            <SelectTrigger className="w-24 shrink-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PHONE_TYPES.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {t}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            value={value.phone}
+            onChange={(e) => update("phone", e.target.value)}
+            placeholder="(555) 431-9020"
+            className="flex-1"
+          />
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label>Fax #</Label>
+        <div className="flex gap-2">
+          <Select value={value.faxType} onValueChange={(v) => update("faxType", v as string)}>
+            <SelectTrigger className="w-24 shrink-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {FAX_TYPES.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {t}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            value={value.fax}
+            onChange={(e) => update("fax", e.target.value)}
+            placeholder="(555) 431-9020"
+            className="flex-1"
+          />
+        </div>
+      </div>
 
       <SectionHeading>Address</SectionHeading>
-      <div className="space-y-1.5 sm:col-span-2">
+      <div className="space-y-1.5 sm:col-span-full">
         <Label htmlFor="prescriberAddressLine1">Street address</Label>
         <Input
           id="prescriberAddressLine1"
@@ -300,33 +306,31 @@ export function StepPrescriber({
           onChange={(e) => updateAddress("city", e.target.value)}
         />
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="prescriberAddressState">State</Label>
-          <Select
-            value={value.address.state || undefined}
-            onValueChange={(v) => updateAddress("state", v as string)}
-          >
-            <SelectTrigger id="prescriberAddressState" className="w-full">
-              <SelectValue placeholder="State" />
-            </SelectTrigger>
-            <SelectContent>
-              {US_STATES.map((s) => (
-                <SelectItem key={s.code} value={s.code}>
-                  {s.code}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="prescriberAddressZip">ZIP</Label>
-          <Input
-            id="prescriberAddressZip"
-            value={value.address.zip}
-            onChange={(e) => updateAddress("zip", e.target.value)}
-          />
-        </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="prescriberAddressState">State</Label>
+        <Select
+          value={value.address.state || undefined}
+          onValueChange={(v) => updateAddress("state", v as string)}
+        >
+          <SelectTrigger id="prescriberAddressState" className="w-full">
+            <SelectValue placeholder="State" />
+          </SelectTrigger>
+          <SelectContent>
+            {US_STATES.map((s) => (
+              <SelectItem key={s.code} value={s.code}>
+                {s.code}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="prescriberAddressZip">ZIP</Label>
+        <Input
+          id="prescriberAddressZip"
+          value={value.address.zip}
+          onChange={(e) => updateAddress("zip", e.target.value)}
+        />
       </div>
     </div>
   );

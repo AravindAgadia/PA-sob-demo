@@ -64,7 +64,7 @@ export function StepPayerPatient({
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <div className="space-y-1.5">
         <Label htmlFor="payer">
           Payer (Insurance) <span className="text-destructive">*</span>
@@ -99,7 +99,7 @@ export function StepPayerPatient({
       </div>
 
       {value.payer.trim() && (
-        <Alert variant="info" className="sm:col-span-2">
+        <Alert variant="info" className="sm:col-span-full">
           <AlertDescription>This payer supports both Medical and Pharmacy PA.</AlertDescription>
         </Alert>
       )}
@@ -159,7 +159,7 @@ export function StepPayerPatient({
           </SelectContent>
         </Select>
       </div>
-      <div className="space-y-1.5 sm:col-span-2">
+      <div className="space-y-1.5">
         <Label htmlFor="memberId">
           Member ID <span className="text-destructive">*</span>
         </Label>
@@ -173,7 +173,7 @@ export function StepPayerPatient({
       </div>
 
       <SectionHeading>Patient Address</SectionHeading>
-      <div className="space-y-1.5 sm:col-span-2">
+      <div className="space-y-1.5 sm:col-span-full">
         <Label htmlFor="patientAddressLine1">Street address</Label>
         <Input
           id="patientAddressLine1"
@@ -189,33 +189,31 @@ export function StepPayerPatient({
           onChange={(e) => updateAddress("city", e.target.value)}
         />
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="patientAddressState">State</Label>
-          <Select
-            value={value.patientAddress.state || undefined}
-            onValueChange={(v) => updateAddress("state", v as string)}
-          >
-            <SelectTrigger id="patientAddressState" className="w-full">
-              <SelectValue placeholder="State" />
-            </SelectTrigger>
-            <SelectContent>
-              {US_STATES.map((s) => (
-                <SelectItem key={s.code} value={s.code}>
-                  {s.code}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="patientAddressZip">ZIP</Label>
-          <Input
-            id="patientAddressZip"
-            value={value.patientAddress.zip}
-            onChange={(e) => updateAddress("zip", e.target.value)}
-          />
-        </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="patientAddressState">State</Label>
+        <Select
+          value={value.patientAddress.state || undefined}
+          onValueChange={(v) => updateAddress("state", v as string)}
+        >
+          <SelectTrigger id="patientAddressState" className="w-full">
+            <SelectValue placeholder="State" />
+          </SelectTrigger>
+          <SelectContent>
+            {US_STATES.map((s) => (
+              <SelectItem key={s.code} value={s.code}>
+                {s.code}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="patientAddressZip">ZIP</Label>
+        <Input
+          id="patientAddressZip"
+          value={value.patientAddress.zip}
+          onChange={(e) => updateAddress("zip", e.target.value)}
+        />
       </div>
     </div>
   );

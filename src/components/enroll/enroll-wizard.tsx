@@ -15,6 +15,7 @@ import {
   type EnrollStepId,
   type EnrollmentData,
 } from "./types";
+import { StepBenefitSummary } from "./step-benefit-summary";
 import { StepPayerPatient, getPayerPatientIssues } from "./step-payer-patient";
 import { StepPrescriber, getPrescriberIssues } from "./step-prescriber";
 import { StepDrugDetails, getDrugDetailsIssues } from "./step-drug-details";
@@ -144,30 +145,26 @@ export function EnrollWizard() {
   const showErrors = !!attemptedNext[step];
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
-      <header className="mb-8 space-y-1.5">
-        <p className="text-sm font-medium text-muted-foreground">
-          Prior Authorization &middot; Enrollment
-        </p>
-        <h1 className="text-2xl font-semibold tracking-tight">New enrollment</h1>
-        <p className="max-w-2xl text-sm text-muted-foreground">
-          A richer, 4-step intake covering payer, patient, prescriber, drug, and servicing-provider
-          detail. Submitting the final step runs eligibility, policy match, and prescriber lookup.
+    <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
+      <header className="mb-4 flex items-baseline justify-between gap-4">
+        <h1 className="text-xl font-semibold tracking-tight">New enrollment</h1>
+        <p className="hidden text-xs text-muted-foreground sm:block">
+          Submitting runs eligibility, policy match, and prescriber lookup.
         </p>
       </header>
 
-      <div className="mb-8 overflow-x-auto rounded-lg border bg-card px-4 py-3">
+      <div className="mb-4 overflow-x-auto rounded-lg border bg-card px-4 py-2.5">
         <Stepper steps={wizardSteps} />
       </div>
 
       {error && (
-        <Alert variant="destructive" className="mb-6">
+        <Alert variant="destructive" className="mb-4">
           <AlertTitle>Request failed</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
-      <Card>
+      <Card size="sm">
         <CardHeader>
           <CardTitle>{ENROLL_STEPS[stepIndex]?.label}</CardTitle>
         </CardHeader>
@@ -200,6 +197,9 @@ export function EnrollWizard() {
               prescriber={data.prescriber}
               showErrors={showErrors}
             />
+          )}
+          {step === "benefit-summary" && (
+            <StepBenefitSummary payer={data.payerPatient.payer} drug={data.drug.drugDescription} />
           )}
         </CardContent>
         <CardFooter className="flex-col items-start gap-3">

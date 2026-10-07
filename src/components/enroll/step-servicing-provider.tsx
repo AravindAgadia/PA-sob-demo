@@ -119,7 +119,7 @@ export function StepServicingProvider({
               Choose &ldquo;Different&rdquo; above to enter a different Servicing Provider.
             </AlertDescription>
           </Alert>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <ReadOnlyField label="NPI #" value={prescriber.npi} />
             <ReadOnlyField label="First name" value={prescriber.firstName} />
             <ReadOnlyField label="Last name" value={prescriber.lastName} />
@@ -131,8 +131,8 @@ export function StepServicingProvider({
           </div>
         </>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5 sm:col-span-2">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-1.5 sm:col-span-full">
             <Label htmlFor="servicingNpi">
               NPI # <span className="text-destructive">*</span>
             </Label>
