@@ -174,6 +174,14 @@ export interface NpiEnrollmentPrefill {
   zip?: string;
   phone?: string;
   taxonomyDescription?: string;
+  /** Never present for a real NPPES lookup — the registry carries none of
+   *  these. Only the hardcoded demo entries below set them, so the wizard
+   *  can fully prepopulate every mandatory Prescriber field from a single
+   *  sample-NPI click instead of just name/address. */
+  licenseState?: string;
+  licenseNumber?: string;
+  taxId?: string;
+  email?: string;
 }
 
 function unresolvedPrefill(
@@ -200,6 +208,10 @@ const DEMO_NPI_PREFILLS: Record<string, Omit<NpiEnrollmentPrefill, "npi" | "stat
     zip: "62701",
     phone: "(217) 555-0142",
     taxonomyDescription: "Neurology",
+    licenseState: "IL",
+    licenseNumber: "IL-884213",
+    taxId: "47-1092233",
+    email: "sarah.chen@springfieldneuro.example.com",
   },
   "1922334455": {
     firstName: "Michael",
@@ -210,6 +222,10 @@ const DEMO_NPI_PREFILLS: Record<string, Omit<NpiEnrollmentPrefill, "npi" | "stat
     zip: "62702",
     phone: "(217) 555-0198",
     taxonomyDescription: "Gastroenterology",
+    licenseState: "IL",
+    licenseNumber: "IL-772910",
+    taxId: "52-3391887",
+    email: "michael.alvarez@springfieldgi.example.com",
   },
   "1015049598": {
     firstName: "Jennifer",
@@ -220,6 +236,10 @@ const DEMO_NPI_PREFILLS: Record<string, Omit<NpiEnrollmentPrefill, "npi" | "stat
     zip: "62703",
     phone: "(217) 555-0176",
     taxonomyDescription: "Rheumatology",
+    licenseState: "IL",
+    licenseNumber: "IL-661457",
+    taxId: "61-7743209",
+    email: "jennifer.park@springfieldrheum.example.com",
   },
 };
 

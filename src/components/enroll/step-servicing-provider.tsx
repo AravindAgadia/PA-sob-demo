@@ -90,6 +90,10 @@ export function StepServicingProvider({
         ...value,
         firstName: result.firstName ?? value.firstName,
         lastName: result.lastName ?? value.lastName,
+        licenseState: result.licenseState ?? value.licenseState,
+        licenseNumber: result.licenseNumber ?? value.licenseNumber,
+        taxId: result.taxId ?? value.taxId,
+        phone: result.phone ?? value.phone,
       });
     });
   }

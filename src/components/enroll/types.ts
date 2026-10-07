@@ -130,6 +130,21 @@ export const BLANK_ENROLLMENT: EnrollmentData = {
   },
 };
 
+/** Local-date (not UTC) "today" for a native date input's default value. */
+function todayIso(): string {
+  const now = new Date();
+  const localMidnight = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+  return localMidnight.toISOString().slice(0, 10);
+}
+
+/** A fresh blank enrollment with Start Date of Service defaulted to today.
+ *  A function (not a second module constant) so "today" is computed at
+ *  call time — once per wizard mount/reset — rather than frozen at
+ *  whenever this module first loaded. */
+export function createInitialEnrollment(): EnrollmentData {
+  return { ...BLANK_ENROLLMENT, drug: { ...BLANK_ENROLLMENT.drug, startDateOfService: todayIso() } };
+}
+
 /** Maps the wizard's richer local state down to the shape the existing
  *  matching engine (`runIntake`) consumes. Everything collected beyond
  *  these fields — NDC, HCPCS, route, days supply/quantity, directions,

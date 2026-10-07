@@ -15,8 +15,8 @@ import { SectionHeading } from "./section-heading";
 import { US_STATES } from "./us-states";
 import type { EnrollmentPayerPatient } from "./types";
 
-const URGENCY_OPTIONS = ["Not Urgent", "Urgent", "Expedited"];
-const GENDER_OPTIONS = ["Female", "Male", "Other", "Unknown"];
+const URGENCY_OPTIONS = ["Not Urgent", "Urgent"];
+const GENDER_OPTIONS = ["Female", "Male", "Unknown"];
 
 export const PAYER_PATIENT_REQUIRED: { key: keyof EnrollmentPayerPatient; label: string }[] = [
   { key: "payer", label: "Payer" },

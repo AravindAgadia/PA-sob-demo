@@ -90,6 +90,12 @@ export function StepPrescriber({
         npi,
         firstName: result.firstName ?? value.firstName,
         lastName: result.lastName ?? value.lastName,
+        licenseState: result.licenseState ?? value.licenseState,
+        licenseNumber: result.licenseNumber ?? value.licenseNumber,
+        taxId: result.taxId ?? value.taxId,
+        phone: result.phone ?? value.phone,
+        email: result.email ?? value.email,
+        confirmEmail: result.email ?? value.confirmEmail,
         address: {
           line1: result.addressLine1 ?? value.address.line1,
           line2: result.addressLine2 ?? value.address.line2,

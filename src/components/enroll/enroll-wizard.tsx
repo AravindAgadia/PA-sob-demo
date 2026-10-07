@@ -9,8 +9,8 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Stepper, type StepperStep } from "@/components/stepper";
 import { useIntakeRun } from "@/hooks/use-intake-run";
 import {
-  BLANK_ENROLLMENT,
   ENROLL_STEPS,
+  createInitialEnrollment,
   mapEnrollmentToIntake,
   type EnrollStepId,
   type EnrollmentData,
@@ -21,7 +21,7 @@ import { StepDrugDetails, getDrugDetailsIssues } from "./step-drug-details";
 import { StepServicingProvider, getServicingProviderIssues } from "./step-servicing-provider";
 
 export function EnrollWizard() {
-  const [data, setData] = useState<EnrollmentData>(BLANK_ENROLLMENT);
+  const [data, setData] = useState<EnrollmentData>(createInitialEnrollment);
   const [step, setStep] = useState<EnrollStepId>("payer-patient");
   const [attemptedNext, setAttemptedNext] = useState<Record<EnrollStepId, boolean>>(
     {} as Record<EnrollStepId, boolean>
@@ -88,7 +88,7 @@ export function EnrollWizard() {
 
   function handleFullReset() {
     handleReset();
-    setData(BLANK_ENROLLMENT);
+    setData(createInitialEnrollment());
     setStep(ENROLL_STEPS[0].id);
     setAttemptedNext({} as Record<EnrollStepId, boolean>);
   }
