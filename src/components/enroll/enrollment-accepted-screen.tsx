@@ -6,11 +6,9 @@ import { Button } from "@/components/ui/button";
 export function EnrollmentAcceptedScreen({
   caseNumber,
   onBack,
-  onEdit,
 }: {
   caseNumber: string;
   onBack: () => void;
-  onEdit: () => void;
 }) {
   return (
     <div className="flex flex-col items-center gap-3 rounded-lg border bg-card px-6 py-12 text-center">
@@ -21,12 +19,9 @@ export function EnrollmentAcceptedScreen({
         Enrollment Accepted &mdash; Case {caseNumber} Created
       </p>
       <p className="text-sm text-muted-foreground">Please check the Case Status tab for progress.</p>
-      <div className="mt-2 flex gap-2">
-        <Button variant="outline" onClick={onEdit}>
-          Edit this enrollment
-        </Button>
-        <Button onClick={onBack}>Back to Enrollment List</Button>
-      </div>
+      <Button className="mt-2" onClick={onBack}>
+        Back to Enrollment List
+      </Button>
     </div>
   );
 }

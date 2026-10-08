@@ -146,7 +146,6 @@ export function EnrollWizard({ initialEnrollment }: { initialEnrollment?: Enroll
         <EnrollmentAcceptedScreen
           caseNumber={submittedCaseNumber}
           onBack={() => router.push("/enrollments")}
-          onEdit={() => setSubmittedCaseNumber(null)}
         />
       </div>
     );
