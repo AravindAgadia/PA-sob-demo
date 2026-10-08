@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { answerCase, declineCase, proceedCase } from "@/app/cases/actions";
+import { declineCase, proceedCase } from "@/app/cases/actions";
+import type { EnrollmentData } from "@/components/enroll/types";
 import { PA_QUESTIONS } from "@/components/questionnaire/pa-questions";
 import { Button } from "@/components/ui/button";
 import { SobResult } from "@/components/sob-result";
@@ -15,14 +16,24 @@ import type { CaseDecision, FollowUpAnswers } from "@/lib/policy/types";
 /**
  * Adapts a persisted CaseRecord into the same props shape useIntakeRun
  * used to derive in-memory — `results` is still always recomputed from
- * the frozen policy snapshot + live answers, never stored — but every
- * mutation now persists via the case-mutation server actions instead of
- * local-only setState. Reuses SobResult completely unchanged.
+ * the frozen policy snapshot + live answers. Questionnaire answers are
+ * local-only (never persisted) until the questionnaire is submitted, at
+ * which point the Complete screen recaps the case instead of saving
+ * individual field answers anywhere.
  */
-export function CaseDetail({ initialCase }: { initialCase: CaseRecord }) {
+export function CaseDetail({
+  initialCase,
+  enrollmentData,
+}: {
+  initialCase: CaseRecord;
+  enrollmentData: EnrollmentData | null;
+}) {
   const router = useRouter();
   const [caseRecord, setCaseRecord] = useState(initialCase);
-  const [answers, setAnswers] = useState<FollowUpAnswers>(initialCase.answers);
+  // Always starts blank, ignoring initialCase.answers — questionnaire
+  // answers are never persisted, so a stale DB value from before that
+  // (or from a prior visit) must never pre-fill the form on open.
+  const [answers, setAnswers] = useState<FollowUpAnswers>({});
   const [decision, setDecision] = useState<CaseDecision>(initialCase.decision);
 
   const { runData } = caseRecord;
@@ -37,11 +48,6 @@ export function CaseDetail({ initialCase }: { initialCase: CaseRecord }) {
       answers,
     });
   }, [policy, runData, answers]);
-
-  function handleAnswersChange(next: FollowUpAnswers) {
-    setAnswers(next);
-    void answerCase(caseRecord.caseNumber, next);
-  }
 
   async function handleProceed() {
     setDecision("proceeded");
@@ -107,7 +113,7 @@ export function CaseDetail({ initialCase }: { initialCase: CaseRecord }) {
         }}
         results={results}
         answers={answers}
-        onAnswersChange={handleAnswersChange}
+        onAnswersChange={setAnswers}
         decision={decision}
         onProceed={handleProceed}
         onDecline={handleDecline}
@@ -116,6 +122,7 @@ export function CaseDetail({ initialCase }: { initialCase: CaseRecord }) {
         onReset={handleBack}
         resetLabel="Back to case list"
         hideBenefitsSummary
+        enrollmentData={enrollmentData}
       />
     </div>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, ArrowRight, Ban, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Ban, Clock } from "lucide-react";
 import { cn } from "cn";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -17,11 +17,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { CaseSummaryCard } from "@/components/cases/case-summary-card";
 import { MatchedBenefitSummary } from "@/components/matched-benefit-summary";
 import { PaQuestionnaire } from "@/components/questionnaire/pa-questionnaire";
 import { SobGate } from "@/components/sob-gate";
 import { CaseClosed } from "@/components/case-closed";
 import type { IntakeRunResult } from "@/app/actions";
+import type { EnrollmentData } from "@/components/enroll/types";
 import type { CaseDecision, CriterionResult, FollowUpAnswers } from "@/lib/policy/types";
 
 /** The decision point without the seeded-policy cost-share/criteria card
@@ -121,6 +123,7 @@ export function SobResult({
   onReset,
   resetLabel = "Start a new request",
   hideBenefitsSummary = false,
+  enrollmentData = null,
 }: {
   run: IntakeRunResult;
   results: CriterionResult[];
@@ -133,6 +136,10 @@ export function SobResult({
   closedAt: string | null;
   onReset: () => void;
   resetLabel?: string;
+  /** Full enrollment wizard data for the Complete screen's Case Summary —
+   *  richer than `run.intake`, which only carries the fields the matching
+   *  engine needs. Null when the originating enrollment can't be found. */
+  enrollmentData?: EnrollmentData | null;
   /** Skips the seeded-policy cost-share/criteria card at the decision
    *  step, showing just a compact Proceed/Decline bar instead — for
    *  contexts (CaseDetail) that already show a real extracted Benefit
@@ -174,6 +181,12 @@ export function SobResult({
     onDecline(reason);
     setDirection("forward");
     setViewStep(1);
+    scrollToTop();
+  }
+
+  function handleQuestionnaireSubmit() {
+    setDirection("forward");
+    setViewStep(2);
     scrollToTop();
   }
 
@@ -236,25 +249,39 @@ export function SobResult({
       )}
 
       {viewStep === 1 && policy && decision === "proceeded" && (
-        <PaQuestionnaire answers={answers} onAnswersChange={onAnswersChange} />
+        <PaQuestionnaire answers={answers} onAnswersChange={onAnswersChange} onSubmit={handleQuestionnaireSubmit} />
       )}
 
       {viewStep === 2 && policy && decision === "proceeded" && (
-        <Alert className="border-accent-green/30 bg-accent-green/10 *:[svg]:text-accent-green">
-          <CheckCircle2 />
-          <AlertTitle>Proceeded</AlertTitle>
-          <AlertDescription>
-            This request has moved forward for {policy.drug} under {policy.payer}, and the provider
-            questionnaire responses are on file. This is <strong>not</strong> an approval decision
-            &mdash; it is a record that the requesting office chose to proceed after reviewing the
-            benefit summary earlier in this flow.
-          </AlertDescription>
-        </Alert>
+        <div className="space-y-4">
+          <Alert className="border-accent-orange/30 bg-accent-orange/10 *:[svg]:text-accent-orange">
+            <Clock />
+            <AlertTitle>Decision pending from {policy.payer}</AlertTitle>
+            <AlertDescription>
+              The request and provider questionnaire have been submitted. A coverage determination is
+              awaiting the payer&apos;s review. This is <strong>not</strong> an approval decision.
+            </AlertDescription>
+          </Alert>
+          {enrollmentData ? (
+            <CaseSummaryCard data={enrollmentData} />
+          ) : (
+            <Alert variant="info">
+              <AlertTitle>Case summary unavailable</AlertTitle>
+              <AlertDescription>
+                The originating enrollment record couldn&apos;t be found, so the full submission
+                details can&apos;t be recapped here.
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
       )}
       </div>
 
       <div className="flex items-center justify-between gap-3">
-        <Button type="button" variant="outline" onClick={goBack} disabled={viewStep === 0}>
+        {/* Disabled at viewStep 2 (Complete) too — once the questionnaire is
+            submitted there's no going back to re-answer it; demo-only
+            restriction, not backed by any persisted "locked" state. */}
+        <Button type="button" variant="outline" onClick={goBack} disabled={viewStep === 0 || viewStep === 2}>
           <ArrowLeft /> Back
         </Button>
         {!atGateAwaitingDecision && (

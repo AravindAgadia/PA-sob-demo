@@ -1,10 +1,10 @@
 "use client";
 
-import { ListChecks } from "lucide-react";
+import { ArrowRight, ListChecks } from "lucide-react";
 import { IconChip } from "@/components/icon-chip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { FollowUpAnswers } from "@/lib/policy/types";
@@ -77,9 +77,11 @@ function PaQuestionField({
 export function PaQuestionnaire({
   answers,
   onAnswersChange,
+  onSubmit,
 }: {
   answers: FollowUpAnswers;
   onAnswersChange: (next: FollowUpAnswers) => void;
+  onSubmit: () => void;
 }) {
   const answeredCount = PA_QUESTIONS.filter((q) => {
     const v = answers[q.id];
@@ -117,6 +119,12 @@ export function PaQuestionnaire({
           </div>
         ))}
       </CardContent>
+      <CardFooter className="justify-end">
+        <Button type="button" onClick={onSubmit}>
+          Submit questionnaire
+          <ArrowRight />
+        </Button>
+      </CardFooter>
     </Card>
   );
 }
