@@ -144,7 +144,30 @@
   }
   html {
     @apply font-sans;
+    scroll-behavior: smooth;
   }
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  [data-slot="card"] {
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+/* Soft, diffused shadow in the Apple HIG style — layered rather than a
+ *  single hard drop shadow — used in place of card.tsx's flat ring. */
+.shadow-soft {
+  box-shadow:
+    0 1px 2px color-mix(in oklch, var(--foreground) 5%, transparent),
+    0 8px 24px -4px color-mix(in oklch, var(--foreground) 8%, transparent);
+}
+
+.dark .shadow-soft {
+  box-shadow:
+    0 1px 2px color-mix(in oklch, black 30%, transparent),
+    0 8px 24px -4px color-mix(in oklch, black 40%, transparent);
 }
 
 .app-shell-background {

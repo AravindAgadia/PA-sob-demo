@@ -18,9 +18,9 @@ export function AppSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col border-r bg-background">
-      <Link href="/" className="flex items-center gap-2 border-b px-4 py-4">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-accent-blue to-accent-purple text-white shadow-sm">
+    <aside className="flex w-60 shrink-0 flex-col border-r border-border/60 bg-background/70 backdrop-blur-xl">
+      <Link href="/" className="flex items-center gap-2 border-b border-border/60 px-4 py-4">
+        <span className="shadow-soft flex size-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-accent-blue to-accent-purple text-white">
           <ShieldCheck className="size-4" />
         </span>
         <span className="min-w-0">
@@ -36,7 +36,7 @@ export function AppSidebar() {
         </span>
       </Link>
 
-      <nav className="flex flex-col gap-0.5 p-2">
+      <nav className="flex flex-col gap-1 p-2.5">
         {NAV_ITEMS.map((item) => {
           const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
           return (
@@ -45,10 +45,10 @@ export function AppSidebar() {
               href={item.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex items-center gap-2.5 rounded-lg border-l-2 border-transparent px-3 py-2 text-sm font-medium transition-colors",
+                "flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200 ease-out",
                 active
-                  ? "border-l-primary bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  ? "shadow-soft bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
               )}
             >
               <item.icon className="size-4 shrink-0" />
