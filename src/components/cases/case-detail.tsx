@@ -117,6 +117,7 @@ export function CaseDetail({ initialCase }: { initialCase: CaseRecord }) {
         closedAt={caseRecord.closedAt}
         onReset={handleBack}
         resetLabel="Back to case list"
+        hideBenefitsSummary
       />
     </div>
   );

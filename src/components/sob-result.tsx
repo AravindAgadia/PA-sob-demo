@@ -1,9 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, ArrowRight, CheckCircle2, ListChecks } from "lucide-react";
+import { ArrowLeft, ArrowRight, Ban, CheckCircle2, ListChecks } from "lucide-react";
 import { cn } from "cn";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogClose,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -18,6 +27,7 @@ import { IconChip } from "@/components/icon-chip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { StatusBadge } from "@/components/status-badge";
+import { Textarea } from "@/components/ui/textarea";
 import { SobGate } from "@/components/sob-gate";
 import { CaseClosed } from "@/components/case-closed";
 import type { IntakeRunResult } from "@/app/actions";
@@ -144,6 +154,80 @@ function CriterionRow({
   );
 }
 
+/** The decision point without the seeded-policy cost-share/criteria card
+ *  — used in place of `SobGate` when the case already has a real,
+ *  extracted Benefit Summary shown elsewhere (CaseDetail's "Drug Policy
+ *  Reference"), so the two don't show redundant/conflicting coverage
+ *  detail side by side. Same Proceed/Decline behavior as SobGate's own
+ *  footer, just without the card body above it. */
+function CompactDecisionBar({
+  decision,
+  onProceed,
+  onDecline,
+}: {
+  decision: CaseDecision;
+  onProceed: () => void;
+  onDecline: (reason: string) => void;
+}) {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [reason, setReason] = useState("");
+
+  function confirmDecline() {
+    onDecline(reason.trim());
+    setDialogOpen(false);
+  }
+
+  if (decision !== "pending") {
+    return (
+      <Badge variant="outline" className="border-transparent bg-muted text-muted-foreground">
+        {decision === "proceeded"
+          ? "Decision: proceeded to provider questions"
+          : "Decision: declined — case closed"}
+      </Badge>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3">
+      <p className="text-xs text-muted-foreground">
+        Review the matched policy above, then decide whether to send the remaining questions to the
+        requesting provider.
+      </p>
+      <div className="flex gap-2">
+        <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <AlertDialogTrigger render={<Button variant="outline" size="sm" />}>
+            <Ban />
+            Decline &mdash; don&apos;t proceed
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogTitle>Close this case without proceeding?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The requesting provider won&apos;t be sent any follow-up questions, and this request
+              won&apos;t move forward. You can note why below, or leave it blank.
+            </AlertDialogDescription>
+            <Textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Reason (optional)"
+              className="min-h-16"
+            />
+            <AlertDialogFooter>
+              <AlertDialogClose render={<Button variant="outline" size="sm" />}>Cancel</AlertDialogClose>
+              <Button variant="destructive" size="sm" onClick={confirmDecline}>
+                Close case
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        <Button size="sm" onClick={onProceed}>
+          Proceed to provider questions
+          <ArrowRight />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 /** Highest screen index reachable given how far this request has actually
  *  progressed — navigation can never jump past what the workflow has
  *  resolved yet. Goes straight to the Benefit Summary (no separate
@@ -168,6 +252,7 @@ export function SobResult({
   closedAt,
   onReset,
   resetLabel = "Start a new request",
+  hideBenefitsSummary = false,
 }: {
   run: IntakeRunResult;
   results: CriterionResult[];
@@ -180,6 +265,11 @@ export function SobResult({
   closedAt: string | null;
   onReset: () => void;
   resetLabel?: string;
+  /** Skips the seeded-policy cost-share/criteria card at the decision
+   *  step, showing just a compact Proceed/Decline bar instead — for
+   *  contexts (CaseDetail) that already show a real extracted Benefit
+   *  Summary elsewhere on the page. */
+  hideBenefitsSummary?: boolean;
 }) {
   const { eligibility, policyMatch } = run;
   const policy = policyMatch.policy;
@@ -222,7 +312,11 @@ export function SobResult({
           direction === "forward" ? "slide-in-from-right-2" : "slide-in-from-left-2"
         )}
       >
-      {viewStep === 0 && policy && (
+      {viewStep === 0 && policy && hideBenefitsSummary && (
+        <CompactDecisionBar decision={decision} onProceed={handleProceed} onDecline={handleDecline} />
+      )}
+
+      {viewStep === 0 && policy && !hideBenefitsSummary && (
         <SobGate
           policy={policy}
           eligibility={eligibility}
