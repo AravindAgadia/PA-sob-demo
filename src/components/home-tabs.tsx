@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus } from "lucide-react";
-import { getEnrollmentById } from "@/app/enroll/actions";
+import { deleteEnrollmentDraft, getEnrollmentById } from "@/app/enroll/actions";
 import { getCase } from "@/app/cases/actions";
 import { CaseDetail } from "@/components/cases/case-detail";
 import { CaseList } from "@/components/cases/case-list";
@@ -72,6 +72,13 @@ export function HomeTabs({
     setTab("new-enrollment");
   }
 
+  function handleDeleteDraft(id: string) {
+    startLoading(async () => {
+      await deleteEnrollmentDraft(id);
+      router.refresh();
+    });
+  }
+
   return (
     <Tabs
       value={tab}
@@ -95,7 +102,12 @@ export function HomeTabs({
               <Plus /> New enrollment
             </Button>
           </div>
-          <EnrollmentList enrollments={initialEnrollments} onResume={handleResume} onViewCase={openCase} />
+          <EnrollmentList
+            enrollments={initialEnrollments}
+            onResume={handleResume}
+            onViewCase={openCase}
+            onDelete={handleDeleteDraft}
+          />
         </TabsContent>
 
         <TabsContent value="cases">

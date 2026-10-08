@@ -1,5 +1,15 @@
 "use client";
 
+import { Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogClose,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,10 +19,12 @@ export function EnrollmentList({
   enrollments,
   onResume,
   onViewCase,
+  onDelete,
 }: {
   enrollments: EnrollmentSummary[];
   onResume: (id: string) => void;
   onViewCase: (caseNumber: string) => void;
+  onDelete: (id: string) => void;
 }) {
   if (enrollments.length === 0) {
     return (
@@ -40,9 +52,35 @@ export function EnrollmentList({
           </span>
           <div className="ml-auto flex gap-2">
             {e.status === "draft" ? (
-              <Button variant="outline" size="sm" onClick={() => onResume(e.id)}>
-                Resume
-              </Button>
+              <>
+                <Button variant="outline" size="sm" onClick={() => onResume(e.id)}>
+                  Resume
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger
+                    render={<Button variant="ghost" size="icon-sm" aria-label={`Delete draft ${e.draftNumber}`} />}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogTitle>Delete this draft?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {e.draftNumber} for {e.patientName || "this patient"} will be permanently deleted.
+                      This can&apos;t be undone.
+                    </AlertDialogDescription>
+                    <AlertDialogFooter>
+                      <AlertDialogClose render={<Button variant="outline" size="sm" />}>
+                        Cancel
+                      </AlertDialogClose>
+                      <AlertDialogClose
+                        render={<Button variant="destructive" size="sm" onClick={() => onDelete(e.id)} />}
+                      >
+                        Delete
+                      </AlertDialogClose>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
             ) : (
               e.caseNumber && (
                 <Button variant="outline" size="sm" onClick={() => onViewCase(e.caseNumber!)}>
