@@ -22,6 +22,7 @@ import type { EnrollmentRecord } from "@/lib/enrollment-store";
 import {
   ENROLL_STEPS,
   createInitialEnrollment,
+  mapEnrollmentToIntake,
   type EnrollStepId,
   type EnrollmentData,
 } from "./types";
@@ -234,7 +235,11 @@ export function EnrollWizard({ initialEnrollment }: { initialEnrollment?: Enroll
             />
           )}
           {step === "benefit-summary" && (
-            <MatchedBenefitSummary payer={data.payerPatient.payer} drug={data.drug.drugDescription} />
+            <MatchedBenefitSummary
+              payer={data.payerPatient.payer}
+              drug={data.drug.drugDescription}
+              intake={mapEnrollmentToIntake(data)}
+            />
           )}
         </CardContent>
         <CardFooter className="flex-col items-start gap-3">

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { answerCase, declineCase, proceedCase } from "@/app/cases/actions";
-import { MatchedBenefitSummary } from "@/components/matched-benefit-summary";
+import { PA_QUESTIONS } from "@/components/questionnaire/pa-questions";
 import { Button } from "@/components/ui/button";
 import { SobResult } from "@/components/sob-result";
 import { Stepper, type StepperStep } from "@/components/stepper";
@@ -61,7 +61,10 @@ export function CaseDetail({ initialCase }: { initialCase: CaseRecord }) {
     router.push("/cases");
   }
 
-  const allResolved = results.length > 0 && results.every((r) => r.status !== "needs-info");
+  const allAnswered = PA_QUESTIONS.every((q) => {
+    const v = answers[q.id];
+    return typeof v === "string" && v.trim().length > 0;
+  });
   const steps: StepperStep[] = [
     { label: "Submit", status: "complete", color: "orange" },
     {
@@ -75,12 +78,12 @@ export function CaseDetail({ initialCase }: { initialCase: CaseRecord }) {
   } else {
     steps.push({
       label: "Questions",
-      status: decision === "pending" ? "upcoming" : allResolved ? "complete" : "current",
+      status: decision === "pending" ? "upcoming" : allAnswered ? "complete" : "current",
       color: "green",
     });
     steps.push({
       label: "Complete",
-      status: decision === "proceeded" && allResolved ? "current" : "upcoming",
+      status: decision === "proceeded" && allAnswered ? "current" : "upcoming",
       color: "green",
     });
   }
@@ -92,11 +95,6 @@ export function CaseDetail({ initialCase }: { initialCase: CaseRecord }) {
       </Button>
       <div className="overflow-x-auto rounded-lg border bg-card px-4 py-3">
         <Stepper steps={steps} />
-      </div>
-
-      <div className="space-y-1.5">
-        <h2 className="text-sm font-semibold">Drug Policy Reference</h2>
-        <MatchedBenefitSummary payer={runData.intake.payer} drug={runData.intake.drug} />
       </div>
 
       <SobResult

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, ArrowRight, Ban, CheckCircle2, ListChecks } from "lucide-react";
+import { ArrowLeft, ArrowRight, Ban, CheckCircle2 } from "lucide-react";
 import { cn } from "cn";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -14,150 +14,20 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { IconChip } from "@/components/icon-chip";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { StatusBadge } from "@/components/status-badge";
 import { Textarea } from "@/components/ui/textarea";
+import { MatchedBenefitSummary } from "@/components/matched-benefit-summary";
+import { PaQuestionnaire } from "@/components/questionnaire/pa-questionnaire";
 import { SobGate } from "@/components/sob-gate";
 import { CaseClosed } from "@/components/case-closed";
 import type { IntakeRunResult } from "@/app/actions";
-import type { CaseDecision, CriterionOption, CriterionResult, FollowUpAnswers } from "@/lib/policy/types";
-
-function AttestationSingleInput({
-  options,
-  value,
-  onChange,
-}: {
-  options: CriterionOption[];
-  value: string | undefined;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <Select
-      value={value ?? null}
-      onValueChange={(v) => {
-        if (v) onChange(v);
-      }}
-    >
-      <SelectTrigger className="w-full max-w-sm">
-        <SelectValue placeholder="Select…" />
-      </SelectTrigger>
-      <SelectContent>
-        {options.map((opt) => (
-          <SelectItem key={opt.value} value={opt.value}>
-            {opt.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
-function AttestationMultiInput({
-  options,
-  onChange,
-}: {
-  options: CriterionOption[];
-  onChange: (value: string[]) => void;
-}) {
-  // Local draft state only — this component unmounts the instant the parent
-  // records an answer (CriterionRow stops rendering it once the criterion
-  // leaves "needs-info"), so checkboxes must NOT call onChange on every
-  // click: that would commit after the first check and hide the rest of
-  // the group before a second finding could be selected.
-  const [selected, setSelected] = useState<string[]>([]);
-
-  function toggle(optionValue: string) {
-    setSelected((prev) =>
-      prev.includes(optionValue) ? prev.filter((v) => v !== optionValue) : [...prev, optionValue]
-    );
-  }
-
-  return (
-    <div className="space-y-2">
-      <div className="grid gap-1.5 sm:grid-cols-2">
-        {options.map((opt) => (
-          <label key={opt.value} className="flex items-center gap-2 text-sm">
-            <Checkbox checked={selected.includes(opt.value)} onCheckedChange={() => toggle(opt.value)} />
-            {opt.label}
-          </label>
-        ))}
-      </div>
-      <Button type="button" variant="outline" size="sm" onClick={() => onChange(selected)}>
-        Confirm selections
-      </Button>
-    </div>
-  );
-}
-
-function CriterionRow({
-  result,
-  answers,
-  onAnswersChange,
-}: {
-  result: CriterionResult;
-  answers: FollowUpAnswers;
-  onAnswersChange: (next: FollowUpAnswers) => void;
-}) {
-  const spec = result.evaluator;
-
-  return (
-    <div className="py-4 first:pt-0 last:pb-0">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium">
-            Criteria #{result.number} &middot; {result.label}
-          </p>
-          <p className="mt-0.5 text-sm text-muted-foreground">{result.detail}</p>
-        </div>
-        <div className="flex shrink-0 flex-col items-end gap-1.5">
-          <StatusBadge status={result.status} />
-          {!result.systemVerifiable && (
-            <Badge variant="secondary" className="text-[10px]">
-              Attestation / manual
-            </Badge>
-          )}
-        </div>
-      </div>
-
-      {result.status === "needs-info" && spec.kind === "attestation-single" && (
-        <div className="mt-3 space-y-1.5">
-          <p className="text-xs text-muted-foreground">{spec.question}</p>
-          <AttestationSingleInput
-            options={spec.options}
-            value={answers[result.id] as string | undefined}
-            onChange={(v) => onAnswersChange({ ...answers, [result.id]: v })}
-          />
-        </div>
-      )}
-
-      {result.status === "needs-info" && spec.kind === "attestation-multi" && (
-        <div className="mt-3 space-y-1.5">
-          <p className="text-xs text-muted-foreground">{spec.question}</p>
-          <AttestationMultiInput
-            options={spec.options}
-            onChange={(v) => onAnswersChange({ ...answers, [result.id]: v })}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
+import type { CaseDecision, CriterionResult, FollowUpAnswers } from "@/lib/policy/types";
 
 /** The decision point without the seeded-policy cost-share/criteria card
- *  — used in place of `SobGate` when the case already has a real,
- *  extracted Benefit Summary shown elsewhere (CaseDetail's "Drug Policy
- *  Reference"), so the two don't show redundant/conflicting coverage
+ *  — used in place of `SobGate` when the real, extracted Benefit Summary
+ *  ("Drug Policy Reference", rendered just above this) already covers
+ *  that ground, so the two don't show redundant/conflicting coverage
  *  detail side by side. Same Proceed/Decline behavior as SobGate's own
  *  footer, just without the card body above it. */
 function CompactDecisionBar({
@@ -180,9 +50,7 @@ function CompactDecisionBar({
   if (decision !== "pending") {
     return (
       <Badge variant="outline" className="border-transparent bg-muted text-muted-foreground">
-        {decision === "proceeded"
-          ? "Decision: proceeded to provider questions"
-          : "Decision: declined — case closed"}
+        {decision === "proceeded" ? "Decision: proceeded to provider questions" : "Decision: declined — case closed"}
       </Badge>
     );
   }
@@ -237,7 +105,7 @@ function getMaxStep(hasPolicy: boolean, decision: CaseDecision): number {
   if (!hasPolicy) return 0; // nothing matched — stuck on that message
   if (decision === "pending") return 0; // stuck on the Benefit Summary gate
   if (decision === "declined") return 1; // ...through the case-closed screen
-  return 2; // proceeded: ...through the final complete-picture screen
+  return 2; // proceeded: ...through provider questions and the completion screen
 }
 
 export function SobResult({
@@ -271,36 +139,42 @@ export function SobResult({
    *  Summary elsewhere on the page. */
   hideBenefitsSummary?: boolean;
 }) {
-  const { eligibility, policyMatch } = run;
+  const { intake, eligibility, policyMatch } = run;
   const policy = policyMatch.policy;
-  const allResolved = results.length > 0 && results.every((r) => r.status !== "needs-info");
-  const anyNotMet = results.some((r) => r.status === "not-met");
 
   const [viewStep, setViewStep] = useState(0);
   const [direction, setDirection] = useState<"forward" | "backward">("forward");
   const maxStep = getMaxStep(!!policy, decision);
   const atGateAwaitingDecision = viewStep === 0 && decision === "pending" && !!policy;
 
+  function scrollToTop() {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   function goBack() {
     setDirection("backward");
     setViewStep((s) => Math.max(0, s - 1));
+    scrollToTop();
   }
 
   function goNext() {
     setDirection("forward");
     setViewStep((s) => Math.min(maxStep, s + 1));
+    scrollToTop();
   }
 
   function handleProceed() {
     onProceed();
     setDirection("forward");
     setViewStep(1);
+    scrollToTop();
   }
 
   function handleDecline(reason: string) {
     onDecline(reason);
     setDirection("forward");
     setViewStep(1);
+    scrollToTop();
   }
 
   return (
@@ -313,7 +187,13 @@ export function SobResult({
         )}
       >
       {viewStep === 0 && policy && hideBenefitsSummary && (
-        <CompactDecisionBar decision={decision} onProceed={handleProceed} onDecline={handleDecline} />
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <h2 className="text-sm font-semibold">Drug Policy Reference</h2>
+            <MatchedBenefitSummary payer={intake.payer} drug={intake.drug} intake={intake} eligibility={eligibility} />
+          </div>
+          <CompactDecisionBar decision={decision} onProceed={handleProceed} onDecline={handleDecline} />
+        </div>
       )}
 
       {viewStep === 0 && policy && !hideBenefitsSummary && (
@@ -356,46 +236,18 @@ export function SobResult({
       )}
 
       {viewStep === 1 && policy && decision === "proceeded" && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2.5">
-              <IconChip icon={ListChecks} color="green" />
-              Provider questions
-            </CardTitle>
-            <CardDescription>
-              Unresolved criteria, kicked back to the requesting provider for a response.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="divide-y">
-            {results.map((result) => (
-              <CriterionRow
-                key={result.id}
-                result={result}
-                answers={answers}
-                onAnswersChange={onAnswersChange}
-              />
-            ))}
-          </CardContent>
-        </Card>
+        <PaQuestionnaire answers={answers} onAnswersChange={onAnswersChange} />
       )}
 
       {viewStep === 2 && policy && decision === "proceeded" && (
         <Alert className="border-accent-green/30 bg-accent-green/10 *:[svg]:text-accent-green">
           <CheckCircle2 />
-          <AlertTitle>Complete picture</AlertTitle>
+          <AlertTitle>Proceeded</AlertTitle>
           <AlertDescription>
-            {allResolved ? (
-              <>
-                All {results.length} criteria have a status. This is <strong>not</strong> an
-                approval decision &mdash; it is a surfaced view of what {policy?.payer} requires
-                for {policy?.drug} under this plan, and what is known so far.{" "}
-                {anyNotMet
-                  ? "At least one criterion was not met based on the information captured."
-                  : "All checkable criteria are satisfied; the requesting office can decide whether to proceed with submission."}
-              </>
-            ) : (
-              "Available once every criterion on the Provider questions screen has a status."
-            )}
+            This request has moved forward for {policy.drug} under {policy.payer}, and the provider
+            questionnaire responses are on file. This is <strong>not</strong> an approval decision
+            &mdash; it is a record that the requesting office chose to proceed after reviewing the
+            benefit summary earlier in this flow.
           </AlertDescription>
         </Alert>
       )}

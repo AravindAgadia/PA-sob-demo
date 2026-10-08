@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { FileCheck2, Loader2 } from "lucide-react";
 import { findMatchingExtractedDraft } from "@/app/enroll/actions";
+import { PatientEligibilityCard } from "@/components/patient-eligibility-card";
 import { SobDocument } from "@/components/sob-document";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { ExtractedDraft } from "@/lib/policy/extraction-store";
+import type { EligibilityResult, IntakeData } from "@/lib/policy/types";
 import { buildSobViewModel } from "@/lib/policy/sob-view-model";
 
 /**
@@ -17,7 +19,19 @@ import { buildSobViewModel } from "@/lib/policy/sob-view-model";
  * view (post-submit) — the wizard only ever showed this once, in-flight;
  * it wasn't re-surfaced once a case existed.
  */
-export function MatchedBenefitSummary({ payer, drug }: { payer: string; drug: string }) {
+export function MatchedBenefitSummary({
+  payer,
+  drug,
+  intake,
+  eligibility,
+}: {
+  payer: string;
+  drug: string;
+  /** When present, shows the Patient Eligibility & Cost Share card above
+   *  the matched policy document. Omitted entirely without it. */
+  intake?: IntakeData;
+  eligibility?: EligibilityResult | null;
+}) {
   const [state, setState] = useState<"loading" | "found" | "not-found">("loading");
   const [draft, setDraft] = useState<ExtractedDraft | null>(null);
 
@@ -72,6 +86,7 @@ export function MatchedBenefitSummary({ payer, drug }: { payer: string; drug: st
           .
         </AlertDescription>
       </Alert>
+      {intake && <PatientEligibilityCard intake={intake} eligibility={eligibility} />}
       <div className="max-h-[32rem] overflow-y-auto rounded-lg border bg-white">
         <SobDocument model={buildSobViewModel(draft.data)} />
       </div>
