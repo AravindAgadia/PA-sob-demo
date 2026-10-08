@@ -88,7 +88,7 @@ export function CaseDetail({
       color: "green",
     });
     steps.push({
-      label: "Complete",
+      label: "Summary",
       status: decision === "proceeded" && allAnswered ? "current" : "upcoming",
       color: "green",
     });

@@ -149,7 +149,11 @@ export function SobResult({
   const { intake, eligibility, policyMatch } = run;
   const policy = policyMatch.policy;
 
-  const [viewStep, setViewStep] = useState(0);
+  // Opens wherever this case already stood when it was last left — a
+  // proceeded case (which can never go back to Questions, see the Back
+  // button below) reopens straight on the Complete screen rather than
+  // resetting to the Benefits gate every visit.
+  const [viewStep, setViewStep] = useState(() => getMaxStep(!!policy, decision));
   const [direction, setDirection] = useState<"forward" | "backward">("forward");
   const maxStep = getMaxStep(!!policy, decision);
   const atGateAwaitingDecision = viewStep === 0 && decision === "pending" && !!policy;
@@ -254,14 +258,26 @@ export function SobResult({
 
       {viewStep === 2 && policy && decision === "proceeded" && (
         <div className="space-y-4">
-          <Alert className="border-accent-orange/30 bg-accent-orange/10 *:[svg]:text-accent-orange">
-            <Clock />
-            <AlertTitle>Decision pending from {policy.payer}</AlertTitle>
-            <AlertDescription>
-              The request and provider questionnaire have been submitted. A coverage determination is
-              awaiting the payer&apos;s review. This is <strong>not</strong> an approval decision.
-            </AlertDescription>
-          </Alert>
+          <div className="shadow-soft overflow-hidden rounded-2xl border bg-gradient-to-br from-accent-orange/10 via-card to-card">
+            <div className="flex flex-wrap items-center gap-4 p-5">
+              <span className="shadow-soft flex size-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-accent-orange to-accent-orange/70 text-white">
+                <Clock className="size-6" />
+              </span>
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <p className="text-xs font-semibold tracking-wide text-accent-orange uppercase">
+                  Decision pending
+                </p>
+                <h3 className="text-lg font-semibold">Awaiting review from {policy.payer}</h3>
+                <p className="text-sm text-muted-foreground">
+                  The request and provider questionnaire have been submitted. This is{" "}
+                  <strong>not</strong> an approval decision.
+                </p>
+              </div>
+              <Badge variant="outline" className="shrink-0 border-accent-orange/40 text-accent-orange">
+                Review pending with payer
+              </Badge>
+            </div>
+          </div>
           {enrollmentData ? (
             <CaseSummaryCard data={enrollmentData} />
           ) : (

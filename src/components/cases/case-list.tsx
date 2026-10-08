@@ -20,17 +20,13 @@ import type { CaseStatusLabel, CaseSummary } from "@/lib/case-store";
 const STATUS_DOT: Record<CaseStatusLabel, string> = {
   "Awaiting Response": "bg-accent-orange",
   Denied: "bg-destructive",
-  "Awaiting Questionnaire": "bg-muted-foreground",
-  "Coverage Determination Failed": "bg-destructive",
-  Approved: "bg-accent-green",
+  "Review Pending with Payer": "bg-accent-blue",
 };
 
 const STATUS_TEXT: Record<CaseStatusLabel, string> = {
   "Awaiting Response": "text-accent-orange",
   Denied: "text-destructive",
-  "Awaiting Questionnaire": "text-muted-foreground",
-  "Coverage Determination Failed": "text-destructive",
-  Approved: "text-accent-green",
+  "Review Pending with Payer": "text-accent-blue",
 };
 
 function StatusBadge({ status }: { status: CaseStatusLabel }) {

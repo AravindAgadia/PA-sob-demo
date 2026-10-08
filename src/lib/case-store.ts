@@ -1,47 +1,24 @@
 import { randomUUID } from "crypto";
 import { ensureSchema, pool } from "@/lib/db";
 import type { IntakeRunResult } from "@/app/actions";
-import { evaluatePolicy } from "@/lib/policy/evaluator";
 import type { CaseDecision, FollowUpAnswers } from "@/lib/policy/types";
 
 /** Demo-only SLA window — AnvayaRx's actual policy is unknown. */
 const SLA_WINDOW_DAYS = 3;
 
 export type CaseStage = "Prior Authorization" | "Coverage Determination";
-export type CaseStatusLabel =
-  | "Awaiting Response"
-  | "Denied"
-  | "Awaiting Questionnaire"
-  | "Coverage Determination Failed"
-  | "Approved";
+export type CaseStatusLabel = "Awaiting Response" | "Denied" | "Review Pending with Payer";
 
-/** List-view convenience labels derived from decision + live criteria
- *  evaluation — not a new claim of authority. The actual coverage
- *  determination disclaimers (sob-gate.tsx, sob-document.tsx, the site
- *  footer) are unaffected by this; this only drives list/badge display. */
-function deriveStageAndStatus(
-  decision: CaseDecision,
-  runData: CaseRunData,
-  answers: FollowUpAnswers
-): { stage: CaseStage; status: CaseStatusLabel } {
+/** List-view convenience labels derived from decision alone — not a new
+ *  claim of authority. The actual coverage determination disclaimers
+ *  (sob-gate.tsx, sob-document.tsx, the site footer) are unaffected by
+ *  this; this only drives list/badge display. Once proceeded, the case
+ *  detail screen no longer auto-adjudicates anything (see sob-result.tsx's
+ *  Complete screen) — it just reports the payer's review as pending. */
+function deriveStageAndStatus(decision: CaseDecision): { stage: CaseStage; status: CaseStatusLabel } {
   if (decision === "pending") return { stage: "Prior Authorization", status: "Awaiting Response" };
   if (decision === "declined") return { stage: "Prior Authorization", status: "Denied" };
-
-  const policy = runData.policyMatch.policy;
-  const results = policy
-    ? evaluatePolicy(policy.criteria, {
-        intake: runData.intake,
-        eligibility: runData.eligibility,
-        npiLookup: runData.npiLookup,
-        answers,
-      })
-    : [];
-  const allResolved = results.length > 0 && results.every((r) => r.status !== "needs-info");
-  const anyNotMet = results.some((r) => r.status === "not-met");
-
-  if (!allResolved) return { stage: "Coverage Determination", status: "Awaiting Questionnaire" };
-  if (anyNotMet) return { stage: "Coverage Determination", status: "Coverage Determination Failed" };
-  return { stage: "Coverage Determination", status: "Approved" };
+  return { stage: "Coverage Determination", status: "Review Pending with Payer" };
 }
 
 function deriveSla(createdAt: string, decision: CaseDecision): { slaDueDate: string; overdue: boolean } {
@@ -107,7 +84,7 @@ function toIso(value: Date | string): string {
 function rowToSummary(row: CaseRow): CaseSummary {
   const decision = row.decision as CaseDecision;
   const createdAt = toIso(row.created_at);
-  const { stage, status } = deriveStageAndStatus(decision, row.run_data, row.answers ?? {});
+  const { stage, status } = deriveStageAndStatus(decision);
   const { slaDueDate, overdue } = deriveSla(createdAt, decision);
   return {
     id: row.id,
@@ -169,7 +146,7 @@ export async function createCaseForEnrollment(
     );
     await client.query("COMMIT");
     const createdAt = new Date().toISOString();
-    const { stage, status } = deriveStageAndStatus("pending", runData, {});
+    const { stage, status } = deriveStageAndStatus("pending");
     const { slaDueDate, overdue } = deriveSla(createdAt, "pending");
     return {
       id,

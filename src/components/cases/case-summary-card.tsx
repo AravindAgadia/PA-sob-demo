@@ -1,4 +1,7 @@
+import type { LucideIcon } from "lucide-react";
+import { Building2, ClipboardList, Pill, Stethoscope, User } from "lucide-react";
 import type { ReactNode } from "react";
+import { IconChip, type IconChipColor } from "@/components/icon-chip";
 import { LabeledRow } from "@/components/labeled-row";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { EnrollmentData, PostalAddress } from "@/components/enroll/types";
@@ -11,11 +14,24 @@ function formatAddress(address: PostalAddress): string {
   return [street, cityStateZip].filter(Boolean).join(", ") || "—";
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({
+  title,
+  icon,
+  color,
+  children,
+}: {
+  title: string;
+  icon: LucideIcon;
+  color: IconChipColor;
+  children: ReactNode;
+}) {
   return (
-    <div>
-      <p className="mb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{title}</p>
-      <div className="divide-y rounded-lg border px-3">{children}</div>
+    <div className="overflow-hidden rounded-xl border">
+      <div className="flex items-center gap-2.5 border-b bg-muted/30 px-3 py-2.5">
+        <IconChip icon={icon} color={color} />
+        <p className="text-sm font-semibold">{title}</p>
+      </div>
+      <div className="divide-y px-3">{children}</div>
     </div>
   );
 }
@@ -32,10 +48,13 @@ export function CaseSummaryCard({ data }: { data: EnrollmentData }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm font-semibold tracking-wide uppercase">Case Summary</CardTitle>
+        <CardTitle className="flex items-center gap-2.5">
+          <IconChip icon={ClipboardList} color="blue" />
+          Case Summary
+        </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <Section title="Patient & Payer">
+      <CardContent className="space-y-3">
+        <Section title="Patient & Payer" icon={User} color="blue">
           <LabeledRow
             label="Patient"
             value={`${payerPatient.patientFirstName} ${payerPatient.patientLastName} · DOB ${payerPatient.patientDob || "—"}${payerPatient.patientGender ? ` · ${payerPatient.patientGender}` : ""}`}
@@ -46,7 +65,7 @@ export function CaseSummaryCard({ data }: { data: EnrollmentData }) {
           <LabeledRow label="Patient address" value={formatAddress(payerPatient.patientAddress)} />
         </Section>
 
-        <Section title="Drug & Diagnosis">
+        <Section title="Drug & Diagnosis" icon={Pill} color="purple">
           <LabeledRow label="Drug" value={drug.drugDescription || "—"} />
           <LabeledRow label="NDC · HCPCS" value={`${drug.ndc || "—"} · ${drug.hcpcsCode || "—"}`} />
           <LabeledRow label="Route" value={drug.routeOfAdministration || "—"} />
@@ -61,7 +80,7 @@ export function CaseSummaryCard({ data }: { data: EnrollmentData }) {
           <LabeledRow label="Dispensing location" value={drug.dispensingLocation || "—"} />
         </Section>
 
-        <Section title="Prescriber">
+        <Section title="Prescriber" icon={Stethoscope} color="green">
           <LabeledRow label="Name" value={`${prescriber.firstName} ${prescriber.lastName}`.trim() || "—"} />
           <LabeledRow label="NPI" value={prescriber.npi || "—"} />
           <LabeledRow
@@ -72,7 +91,7 @@ export function CaseSummaryCard({ data }: { data: EnrollmentData }) {
           <LabeledRow label="Address" value={formatAddress(prescriber.address)} />
         </Section>
 
-        <Section title="Servicing Provider">
+        <Section title="Servicing Provider" icon={Building2} color="teal">
           {servicingProvider.sameAsPrescriber ? (
             <LabeledRow label="Servicing provider" value="Same as prescriber" />
           ) : (
