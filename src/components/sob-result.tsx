@@ -103,8 +103,8 @@ function CompactDecisionBar({
  *  resolved yet. Goes straight to the Benefit Summary (no separate
  *  eligibility/policy-match/prescriber click-through screens); that data
  *  still feeds the evaluator, it's just not shown as its own stop. */
-function getMaxStep(hasPolicy: boolean, decision: CaseDecision): number {
-  if (!hasPolicy) return 0; // nothing matched — stuck on that message
+function getMaxStep(flowAvailable: boolean, decision: CaseDecision): number {
+  if (!flowAvailable) return 0; // nothing to show — stuck on that message
   if (decision === "pending") return 0; // stuck on the Benefit Summary gate
   if (decision === "declined") return 1; // ...through the case-closed screen
   return 2; // proceeded: ...through provider questions and the completion screen
@@ -148,15 +148,22 @@ export function SobResult({
 }) {
   const { intake, eligibility, policyMatch } = run;
   const policy = policyMatch.policy;
+  // The old seeded-policy match (`policy`) only ever covers the one
+  // seeded Tepezza policy — every other drug legitimately has no match
+  // there. In hideBenefitsSummary mode the real reference is the
+  // Document Library match inside MatchedBenefitSummary instead (which
+  // handles its own "not found" case), so the flow must not dead-end
+  // just because the legacy seeded policy didn't match.
+  const flowAvailable = hideBenefitsSummary || !!policy;
 
   // Opens wherever this case already stood when it was last left — a
   // proceeded case (which can never go back to Questions, see the Back
   // button below) reopens straight on the Complete screen rather than
   // resetting to the Benefits gate every visit.
-  const [viewStep, setViewStep] = useState(() => getMaxStep(!!policy, decision));
+  const [viewStep, setViewStep] = useState(() => getMaxStep(flowAvailable, decision));
   const [direction, setDirection] = useState<"forward" | "backward">("forward");
-  const maxStep = getMaxStep(!!policy, decision);
-  const atGateAwaitingDecision = viewStep === 0 && decision === "pending" && !!policy;
+  const maxStep = getMaxStep(flowAvailable, decision);
+  const atGateAwaitingDecision = viewStep === 0 && decision === "pending" && flowAvailable;
 
   function scrollToTop() {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -203,7 +210,7 @@ export function SobResult({
           direction === "forward" ? "slide-in-from-right-2" : "slide-in-from-left-2"
         )}
       >
-      {viewStep === 0 && policy && hideBenefitsSummary && (
+      {viewStep === 0 && flowAvailable && hideBenefitsSummary && (
         <div className="space-y-4">
           <div className="space-y-1.5">
             <h2 className="text-sm font-semibold">Drug Policy Reference</h2>
@@ -224,7 +231,7 @@ export function SobResult({
         />
       )}
 
-      {viewStep === 0 && !policy && (
+      {viewStep === 0 && !flowAvailable && (
         <Alert
           variant={policyMatch.matchMethod === "none" ? "destructive" : "default"}
           className={
@@ -248,15 +255,20 @@ export function SobResult({
         </Alert>
       )}
 
-      {viewStep === 1 && policy && decision === "declined" && (
-        <CaseClosed policy={policy} reason={declineReason} closedAt={closedAt ?? new Date().toISOString()} />
+      {viewStep === 1 && flowAvailable && decision === "declined" && (
+        <CaseClosed
+          drug={intake.drug}
+          payer={intake.payer}
+          reason={declineReason}
+          closedAt={closedAt ?? new Date().toISOString()}
+        />
       )}
 
-      {viewStep === 1 && policy && decision === "proceeded" && (
+      {viewStep === 1 && flowAvailable && decision === "proceeded" && (
         <PaQuestionnaire answers={answers} onAnswersChange={onAnswersChange} onSubmit={handleQuestionnaireSubmit} />
       )}
 
-      {viewStep === 2 && policy && decision === "proceeded" && (
+      {viewStep === 2 && flowAvailable && decision === "proceeded" && (
         <div className="space-y-4">
           <div className="shadow-soft overflow-hidden rounded-2xl border bg-gradient-to-br from-accent-orange/10 via-card to-card">
             <div className="flex flex-wrap items-center gap-4 p-5">
@@ -267,7 +279,7 @@ export function SobResult({
                 <p className="text-xs font-semibold tracking-wide text-accent-orange uppercase">
                   Decision pending
                 </p>
-                <h3 className="text-lg font-semibold">Awaiting review from {policy.payer}</h3>
+                <h3 className="text-lg font-semibold">Awaiting review from {intake.payer}</h3>
                 <p className="text-sm text-muted-foreground">
                   The request and provider questionnaire have been submitted. This is{" "}
                   <strong>not</strong> an approval decision.

@@ -2,14 +2,15 @@ import { Ban } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { IconChip } from "@/components/icon-chip";
-import type { PolicyDocument } from "@/lib/policy/types";
 
 export function CaseClosed({
-  policy,
+  drug,
+  payer,
   reason,
   closedAt,
 }: {
-  policy: PolicyDocument;
+  drug: string;
+  payer: string;
   reason?: string;
   closedAt: string;
 }) {
@@ -27,9 +28,9 @@ export function CaseClosed({
           Declined at Summary of Benefits
         </Badge>
         <p>
-          The requesting office reviewed the Summary of Benefits for {policy.drug} (
-          {policy.payer}) and chose not to proceed. No questions were sent to the provider, and
-          this request was not submitted for prior authorization.
+          The requesting office reviewed the Summary of Benefits for {drug} ({payer}) and chose not
+          to proceed. No questions were sent to the provider, and this request was not submitted
+          for prior authorization.
         </p>
         {reason && (
           <p>
