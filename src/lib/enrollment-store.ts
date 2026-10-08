@@ -16,6 +16,7 @@ export interface EnrollmentSummary {
   payer: string;
   patientName: string;
   drugLabel: string;
+  urgency: string;
   caseNumber: string | null;
   updatedAt: string;
 }
@@ -33,6 +34,7 @@ interface EnrollmentRow {
   payer: string;
   patient_name: string;
   drug_label: string;
+  urgency: string;
   case_id: string | null;
   case_number: string | null;
   created_at: Date;
@@ -52,6 +54,7 @@ function rowToSummary(row: EnrollmentRow): EnrollmentSummary {
     payer: row.payer,
     patientName: row.patient_name,
     drugLabel: row.drug_label,
+    urgency: row.urgency,
     caseNumber: row.case_number,
     updatedAt: toIso(row.updated_at),
   };
@@ -75,6 +78,10 @@ function deriveDrugLabel(data: EnrollmentData): string {
   return data.drug.drugDescription;
 }
 
+function deriveUrgency(data: EnrollmentData): string {
+  return data.payerPatient.urgency;
+}
+
 export async function saveDraftEnrollment(input: {
   id?: string;
   data: EnrollmentData;
@@ -84,14 +91,15 @@ export async function saveDraftEnrollment(input: {
   const payer = derivePayer(input.data);
   const patientName = derivePatientName(input.data);
   const drugLabel = deriveDrugLabel(input.data);
+  const urgency = deriveUrgency(input.data);
 
   if (input.id) {
     const { rows } = await pool.query<EnrollmentRow>(
       `UPDATE enrollments
-       SET data = $2, step = $3, payer = $4, patient_name = $5, drug_label = $6, updated_at = now()
+       SET data = $2, step = $3, payer = $4, patient_name = $5, drug_label = $6, urgency = $7, updated_at = now()
        WHERE id = $1 AND status = 'draft'
        RETURNING *`,
-      [input.id, JSON.stringify(input.data), input.step, payer, patientName, drugLabel]
+      [input.id, JSON.stringify(input.data), input.step, payer, patientName, drugLabel, urgency]
     );
     if (rows[0]) return rowToRecord(rows[0]);
     // Fell through: the id didn't match a draft row (e.g. already submitted,
@@ -103,10 +111,10 @@ export async function saveDraftEnrollment(input: {
   const { rows: seqRows } = await pool.query<{ n: string }>("SELECT nextval('draft_number_seq') AS n");
   const draftNumber = `DRAFT-${seqRows[0]!.n}`;
   const { rows } = await pool.query<EnrollmentRow>(
-    `INSERT INTO enrollments (id, draft_number, status, step, data, payer, patient_name, drug_label)
-     VALUES ($1, $2, 'draft', $3, $4, $5, $6, $7)
+    `INSERT INTO enrollments (id, draft_number, status, step, data, payer, patient_name, drug_label, urgency)
+     VALUES ($1, $2, 'draft', $3, $4, $5, $6, $7, $8)
      RETURNING *`,
-    [id, draftNumber, input.step, JSON.stringify(input.data), payer, patientName, drugLabel]
+    [id, draftNumber, input.step, JSON.stringify(input.data), payer, patientName, drugLabel, urgency]
   );
   return rowToRecord(rows[0]!);
 }

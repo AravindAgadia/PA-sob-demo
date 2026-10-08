@@ -99,12 +99,14 @@ const SCHEMA_SQL = `
     payer TEXT NOT NULL DEFAULT '',
     patient_name TEXT NOT NULL DEFAULT '',
     drug_label TEXT NOT NULL DEFAULT '',
+    urgency TEXT NOT NULL DEFAULT '',
     case_id TEXT,
     case_number TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
   );
   ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS draft_number TEXT NOT NULL DEFAULT '';
+  ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS urgency TEXT NOT NULL DEFAULT '';
 
   CREATE INDEX IF NOT EXISTS idx_enrollments_status_updated ON enrollments (status, updated_at DESC);
 

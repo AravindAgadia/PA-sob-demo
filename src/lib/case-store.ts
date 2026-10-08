@@ -1,7 +1,54 @@
 import { randomUUID } from "crypto";
 import { ensureSchema, pool } from "@/lib/db";
 import type { IntakeRunResult } from "@/app/actions";
+import { evaluatePolicy } from "@/lib/policy/evaluator";
 import type { CaseDecision, FollowUpAnswers } from "@/lib/policy/types";
+
+/** Demo-only SLA window — AnvayaRx's actual policy is unknown. */
+const SLA_WINDOW_DAYS = 3;
+
+export type CaseStage = "Prior Authorization" | "Coverage Determination";
+export type CaseStatusLabel =
+  | "Awaiting Response"
+  | "Denied"
+  | "Awaiting Questionnaire"
+  | "Coverage Determination Failed"
+  | "Approved";
+
+/** List-view convenience labels derived from decision + live criteria
+ *  evaluation — not a new claim of authority. The actual coverage
+ *  determination disclaimers (sob-gate.tsx, sob-document.tsx, the site
+ *  footer) are unaffected by this; this only drives list/badge display. */
+function deriveStageAndStatus(
+  decision: CaseDecision,
+  runData: CaseRunData,
+  answers: FollowUpAnswers
+): { stage: CaseStage; status: CaseStatusLabel } {
+  if (decision === "pending") return { stage: "Prior Authorization", status: "Awaiting Response" };
+  if (decision === "declined") return { stage: "Prior Authorization", status: "Denied" };
+
+  const policy = runData.policyMatch.policy;
+  const results = policy
+    ? evaluatePolicy(policy.criteria, {
+        intake: runData.intake,
+        eligibility: runData.eligibility,
+        npiLookup: runData.npiLookup,
+        answers,
+      })
+    : [];
+  const allResolved = results.length > 0 && results.every((r) => r.status !== "needs-info");
+  const anyNotMet = results.some((r) => r.status === "not-met");
+
+  if (!allResolved) return { stage: "Coverage Determination", status: "Awaiting Questionnaire" };
+  if (anyNotMet) return { stage: "Coverage Determination", status: "Coverage Determination Failed" };
+  return { stage: "Coverage Determination", status: "Approved" };
+}
+
+function deriveSla(createdAt: string, decision: CaseDecision): { slaDueDate: string; overdue: boolean } {
+  const due = new Date(createdAt);
+  due.setDate(due.getDate() + SLA_WINDOW_DAYS);
+  return { slaDueDate: due.toISOString(), overdue: decision === "pending" && Date.now() > due.getTime() };
+}
 
 /**
  * CRUD for the `cases` table — a submitted enrollment's eligibility/
@@ -21,7 +68,12 @@ export interface CaseSummary {
   payer: string;
   patientName: string;
   drugLabel: string;
+  urgency: string;
   decision: CaseDecision;
+  stage: CaseStage;
+  status: CaseStatusLabel;
+  slaDueDate: string;
+  overdue: boolean;
   createdAt: string;
 }
 
@@ -45,6 +97,7 @@ interface CaseRow {
   payer: string;
   patient_name: string;
   drug_label: string;
+  urgency: string;
 }
 
 function toIso(value: Date | string): string {
@@ -52,6 +105,10 @@ function toIso(value: Date | string): string {
 }
 
 function rowToSummary(row: CaseRow): CaseSummary {
+  const decision = row.decision as CaseDecision;
+  const createdAt = toIso(row.created_at);
+  const { stage, status } = deriveStageAndStatus(decision, row.run_data, row.answers ?? {});
+  const { slaDueDate, overdue } = deriveSla(createdAt, decision);
   return {
     id: row.id,
     caseNumber: row.case_number,
@@ -59,8 +116,13 @@ function rowToSummary(row: CaseRow): CaseSummary {
     payer: row.payer,
     patientName: row.patient_name,
     drugLabel: row.drug_label,
-    decision: row.decision as CaseDecision,
-    createdAt: toIso(row.created_at),
+    urgency: row.urgency,
+    decision,
+    stage,
+    status,
+    slaDueDate,
+    overdue,
+    createdAt,
   };
 }
 
@@ -75,7 +137,8 @@ function rowToRecord(row: CaseRow): CaseRecord {
 }
 
 const CASE_SELECT = `
-  SELECT c.*, e.payer AS payer, e.patient_name AS patient_name, e.drug_label AS drug_label
+  SELECT c.*, e.payer AS payer, e.patient_name AS patient_name, e.drug_label AS drug_label,
+         e.urgency AS urgency
   FROM cases c
   JOIN enrollments e ON e.id = c.enrollment_id
 `;
@@ -99,11 +162,15 @@ export async function createCaseForEnrollment(
        VALUES ($1, $2, $3, $4)`,
       [id, caseNumber, enrollmentId, JSON.stringify(runData)]
     );
-    await client.query(
-      `UPDATE enrollments SET status = 'submitted', case_id = $2, case_number = $3 WHERE id = $1`,
+    const { rows: enrollmentRows } = await client.query<{ urgency: string }>(
+      `UPDATE enrollments SET status = 'submitted', case_id = $2, case_number = $3
+       WHERE id = $1 RETURNING urgency`,
       [enrollmentId, id, caseNumber]
     );
     await client.query("COMMIT");
+    const createdAt = new Date().toISOString();
+    const { stage, status } = deriveStageAndStatus("pending", runData, {});
+    const { slaDueDate, overdue } = deriveSla(createdAt, "pending");
     return {
       id,
       caseNumber,
@@ -111,8 +178,13 @@ export async function createCaseForEnrollment(
       payer: runData.intake.payer,
       patientName: `${runData.intake.patientFirstName} ${runData.intake.patientLastName}`.trim(),
       drugLabel: runData.intake.drug,
+      urgency: enrollmentRows[0]?.urgency ?? "",
       decision: "pending",
-      createdAt: new Date().toISOString(),
+      stage,
+      status,
+      slaDueDate,
+      overdue,
+      createdAt,
     };
   } catch (err) {
     await client.query("ROLLBACK");

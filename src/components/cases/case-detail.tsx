@@ -18,7 +18,7 @@ import type { CaseDecision, FollowUpAnswers } from "@/lib/policy/types";
  * mutation now persists via the case-mutation server actions instead of
  * local-only setState. Reuses SobResult completely unchanged.
  */
-export function CaseDetail({ initialCase, onBack }: { initialCase: CaseRecord; onBack: () => void }) {
+export function CaseDetail({ initialCase }: { initialCase: CaseRecord }) {
   const router = useRouter();
   const [caseRecord, setCaseRecord] = useState(initialCase);
   const [answers, setAnswers] = useState<FollowUpAnswers>(initialCase.answers);
@@ -56,8 +56,8 @@ export function CaseDetail({ initialCase, onBack }: { initialCase: CaseRecord; o
     router.refresh();
   }
 
-  function handleReset() {
-    onBack();
+  function handleBack() {
+    router.push("/cases");
   }
 
   const allResolved = results.length > 0 && results.every((r) => r.status !== "needs-info");
@@ -86,7 +86,7 @@ export function CaseDetail({ initialCase, onBack }: { initialCase: CaseRecord; o
 
   return (
     <div className="space-y-4">
-      <Button type="button" variant="ghost" size="sm" onClick={onBack}>
+      <Button type="button" variant="ghost" size="sm" onClick={handleBack}>
         <ArrowLeft /> Back to case list
       </Button>
       <div className="overflow-x-auto rounded-lg border bg-card px-4 py-3">
@@ -108,7 +108,7 @@ export function CaseDetail({ initialCase, onBack }: { initialCase: CaseRecord; o
         onDecline={handleDecline}
         declineReason={caseRecord.declineReason ?? undefined}
         closedAt={caseRecord.closedAt}
-        onReset={handleReset}
+        onReset={handleBack}
         resetLabel="Back to case list"
       />
     </div>

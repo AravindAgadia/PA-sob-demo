@@ -32,15 +32,7 @@ import { StepPrescriber, getPrescriberIssues } from "./step-prescriber";
 import { StepDrugDetails, getDrugDetailsIssues } from "./step-drug-details";
 import { StepServicingProvider, getServicingProviderIssues } from "./step-servicing-provider";
 
-export function EnrollWizard({
-  initialEnrollment,
-  onSubmitted,
-  onDraftSaved,
-}: {
-  initialEnrollment?: EnrollmentRecord;
-  onSubmitted: (caseNumber: string) => void;
-  onDraftSaved: () => void;
-}) {
+export function EnrollWizard({ initialEnrollment }: { initialEnrollment?: EnrollmentRecord }) {
   const router = useRouter();
   const [data, setData] = useState<EnrollmentData>(() => initialEnrollment?.data ?? createInitialEnrollment());
   const [step, setStep] = useState<EnrollStepId>(() => initialEnrollment?.step ?? ENROLL_STEPS[0].id);
@@ -145,6 +137,7 @@ export function EnrollWizard({
     setDraftNumber(undefined);
     setAttemptedNext({} as Record<EnrollStepId, boolean>);
     setError(null);
+    router.replace("/enrollments/new");
   }
 
   if (submittedCaseNumber) {
@@ -152,7 +145,7 @@ export function EnrollWizard({
       <div className="mx-auto max-w-4xl">
         <EnrollmentAcceptedScreen
           caseNumber={submittedCaseNumber}
-          onBack={() => onSubmitted(submittedCaseNumber)}
+          onBack={() => router.push("/enrollments")}
           onEdit={() => setSubmittedCaseNumber(null)}
         />
       </div>
@@ -162,7 +155,7 @@ export function EnrollWizard({
   if (savedDraftNumber) {
     return (
       <div className="mx-auto max-w-4xl">
-        <DraftSavedScreen draftNumber={savedDraftNumber} onBack={onDraftSaved} />
+        <DraftSavedScreen draftNumber={savedDraftNumber} onBack={() => router.push("/enrollments")} />
       </div>
     );
   }
