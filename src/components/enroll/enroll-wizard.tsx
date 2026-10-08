@@ -16,6 +16,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { MatchedBenefitSummary } from "@/components/matched-benefit-summary";
 import { Stepper, type StepperStep } from "@/components/stepper";
 import type { EnrollmentRecord } from "@/lib/enrollment-store";
 import {
@@ -26,7 +27,6 @@ import {
 } from "./types";
 import { DraftSavedScreen } from "./draft-saved-screen";
 import { EnrollmentAcceptedScreen } from "./enrollment-accepted-screen";
-import { StepBenefitSummary } from "./step-benefit-summary";
 import { StepPayerPatient, getPayerPatientIssues } from "./step-payer-patient";
 import { StepPrescriber, getPrescriberIssues } from "./step-prescriber";
 import { StepDrugDetails, getDrugDetailsIssues } from "./step-drug-details";
@@ -235,7 +235,7 @@ export function EnrollWizard({ initialEnrollment }: { initialEnrollment?: Enroll
             />
           )}
           {step === "benefit-summary" && (
-            <StepBenefitSummary payer={data.payerPatient.payer} drug={data.drug.drugDescription} />
+            <MatchedBenefitSummary payer={data.payerPatient.payer} drug={data.drug.drugDescription} />
           )}
         </CardContent>
         <CardFooter className="flex-col items-start gap-3">

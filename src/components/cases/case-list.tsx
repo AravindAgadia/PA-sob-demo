@@ -50,7 +50,10 @@ export function CaseList({ cases }: { cases: CaseSummary[] }) {
     const q = query.trim().toLowerCase();
     return cases.filter((c) => {
       const matchesQuery =
-        !q || c.patientName.toLowerCase().includes(q) || c.caseNumber.toLowerCase().includes(q);
+        !q ||
+        c.patientName.toLowerCase().includes(q) ||
+        c.caseNumber.toLowerCase().includes(q) ||
+        c.drugLabel.toLowerCase().includes(q);
       const matchesStatus = statusFilter === "all" || c.status === statusFilter;
       return matchesQuery && matchesStatus;
     });
@@ -74,7 +77,7 @@ export function CaseList({ cases }: { cases: CaseSummary[] }) {
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search patient or case ID"
+            placeholder="Search patient, case ID, or drug"
             className="pl-8"
           />
         </div>
@@ -105,6 +108,7 @@ export function CaseList({ cases }: { cases: CaseSummary[] }) {
             <thead>
               <tr className="border-b bg-muted/40 text-left text-xs text-muted-foreground uppercase">
                 <th className="px-3 py-2 font-medium">Patient</th>
+                <th className="px-3 py-2 font-medium">Drug</th>
                 <th className="px-3 py-2 font-medium">Case ID</th>
                 <th className="px-3 py-2 font-medium">Stage</th>
                 <th className="px-3 py-2 font-medium">Status</th>
@@ -122,6 +126,12 @@ export function CaseList({ cases }: { cases: CaseSummary[] }) {
                       <span className="font-medium whitespace-nowrap">
                         {c.patientName || "Unnamed patient"}
                       </span>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-medium whitespace-nowrap">{c.drugLabel || "—"}</span>
+                      {c.payer && <span className="text-xs text-muted-foreground">{c.payer}</span>}
                     </div>
                   </td>
                   <td className="px-3 py-2.5">

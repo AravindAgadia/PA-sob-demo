@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { answerCase, declineCase, proceedCase } from "@/app/cases/actions";
+import { MatchedBenefitSummary } from "@/components/matched-benefit-summary";
 import { Button } from "@/components/ui/button";
 import { SobResult } from "@/components/sob-result";
 import { Stepper, type StepperStep } from "@/components/stepper";
@@ -92,6 +93,12 @@ export function CaseDetail({ initialCase }: { initialCase: CaseRecord }) {
       <div className="overflow-x-auto rounded-lg border bg-card px-4 py-3">
         <Stepper steps={steps} />
       </div>
+
+      <div className="space-y-1.5">
+        <h2 className="text-sm font-semibold">Drug Policy Reference</h2>
+        <MatchedBenefitSummary payer={runData.intake.payer} drug={runData.intake.drug} />
+      </div>
+
       <SobResult
         run={{
           intake: runData.intake,

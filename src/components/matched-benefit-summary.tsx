@@ -10,13 +10,14 @@ import type { ExtractedDraft } from "@/lib/policy/extraction-store";
 import { buildSobViewModel } from "@/lib/policy/sob-view-model";
 
 /**
- * Final wizard step — checks the Document Library for an extracted policy
- * draft covering the same payer + drug and, when found, shows its full
- * six-section Benefit Summary (the same one /documents/extract renders)
- * right here. Purely informational: there's nothing to fill in, so this
- * step never blocks "Submit PA request" whether a match is found or not.
+ * Checks the Document Library for an extracted policy draft covering the
+ * same payer + drug and, when found, shows its full six-section Benefit
+ * Summary (the same one /documents/extract renders) inline. Shared by
+ * the wizard's own Benefit Summary step (pre-submit) and the Case detail
+ * view (post-submit) — the wizard only ever showed this once, in-flight;
+ * it wasn't re-surfaced once a case existed.
  */
-export function StepBenefitSummary({ payer, drug }: { payer: string; drug: string }) {
+export function MatchedBenefitSummary({ payer, drug }: { payer: string; drug: string }) {
   const [state, setState] = useState<"loading" | "found" | "not-found">("loading");
   const [draft, setDraft] = useState<ExtractedDraft | null>(null);
 
